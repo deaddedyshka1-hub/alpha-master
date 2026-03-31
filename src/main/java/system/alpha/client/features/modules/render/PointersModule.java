@@ -91,6 +91,11 @@ public class PointersModule extends Module {
     @Override
     public void onEvent() {
         EventListener renderEvent = Render2DEvent.getInstance().subscribe(new Listener<>(2, event -> {
+            // Проверяем, открыт ли какой-либо контейнер (инвентарь, сундук и т.д.)
+            if (mc.currentScreen instanceof HandledScreen) {
+                return;
+            }
+
             alive.clear();
 
             yawAnimation.update();
@@ -171,16 +176,15 @@ public class PointersModule extends Module {
         float animatedRadius = pointerRadius.getValue() * animFactor;
         float yaw = (float) (getEntityYaw(entity) - yawAnimation.getValue());
 
+        matrixStack.push();
         matrixStack.translate(centerX, centerY, 0.0F);
         matrixStack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(mc.options.getPerspective() == Perspective.THIRD_PERSON_FRONT ? -yaw : yaw));
         matrixStack.translate(-centerX, -centerY, 0.0F);
 
-        Color color = ColorUtil.setAlpha(getEntityColor(entity), (int) (spawnAnim * 255));
-        drawPointer(context, centerX, (float) (centerY - animatedRadius - radiusAnimation.getValue()), pointerSize.getValue() * 20F, ColorUtil.setAlpha(color, (int) (255f * (color.getAlpha() / 255f) * spawn.getValue())), false);
+        Color color = getEntityColor(entity);
+        drawPointer(context, centerX, (float) (centerY - animatedRadius - radiusAnimation.getValue()), pointerSize.getValue() * 20F, ColorUtil.setAlpha(color, (int) (spawnAnim * 255)), false);
 
-        matrixStack.translate(centerX, centerY, 0.0F);
-        matrixStack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(mc.options.getPerspective() == Perspective.THIRD_PERSON_FRONT ? yaw : -yaw));
-        matrixStack.translate(-centerX, -centerY, 0.0F);
+        matrixStack.pop();
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 

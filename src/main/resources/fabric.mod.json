@@ -9,10 +9,10 @@
 		"danya"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://github.com/",
+		"sources": "https://github.com/deaddedyshka1-hub/alpha-master"
 	},
-	"license": "CC0-1.0",
+	"license": "GNU General Public License v3",
 	"icon": "assets/alphavisuals/icon.png",
 	"environment": "client",
 	"entrypoints": {
