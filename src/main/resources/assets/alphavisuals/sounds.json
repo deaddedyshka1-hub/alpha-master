@@ -1,0 +1,137 @@
+{
+  "nursultan_off": {
+    "sounds": [
+      "alphavisuals:nursultan_off"
+    ]
+  },
+  "nursultan_on": {
+    "sounds": [
+      "alphavisuals:nursultan_on"
+    ]
+  },
+  "celestial_off": {
+    "sounds": [
+      "alphavisuals:celestial_off"
+    ]
+  },
+  "celestial_on": {
+    "sounds": [
+      "alphavisuals:celestial_on"
+    ]
+  },
+  "smooth_off": {
+    "sounds": [
+      "alphavisuals:smooth_off"
+    ]
+  },
+  "smooth_on": {
+    "sounds": [
+      "alphavisuals:smooth_on"
+    ]
+  },
+  "akrien_on": {
+    "sounds": [
+      "alphavisuals:akrien_on"
+    ]
+  },
+  "akrien_off": {
+    "sounds": [
+      "alphavisuals:akrien_off"
+    ]
+  },
+  "tech_on": {
+    "sounds": [
+      "alphavisuals:tech_on"
+    ]
+  },
+  "tech_off": {
+    "sounds": [
+      "alphavisuals:tech_off"
+    ]
+  },
+  "blop_on": {
+    "sounds": [
+      "alphavisuals:blop_on"
+    ]
+  },
+  "blop_off": {
+    "sounds": [
+      "alphavisuals:blop_off"
+    ]
+  },
+  "totem/1":
+  { "sounds": [
+    "alphavisuals:totem/1"
+  ]
+  },
+  "totem/2": {
+    "sounds": [
+      "alphavisuals:totem/2"
+    ]
+  },
+  "totem/3": {
+    "sounds": [
+      "alphavisuals:totem/3"
+    ]
+  },
+  "totem/4": {
+    "sounds": [
+      "alphavisuals:totem/4"
+    ]
+  },
+  "totem/5": {
+    "sounds": [
+      "alphavisuals:totem/5"
+    ]
+  },
+  "totem/6": {
+    "sounds": [
+      "alphavisuals:totem/6"
+    ]
+  },
+  "totem/7": {
+    "sounds": [
+      "alphavisuals:totem/7"
+    ]
+  },
+  "totem/8": {
+    "sounds": [
+      "alphavisuals:totem/8"
+    ]
+  },
+  "totem/9": {
+    "sounds": [
+      "alphavisuals:totem/9"
+    ]
+  },
+  "totem/10": {
+    "sounds": [
+      "alphavisuals:totem/10"
+    ]
+  },
+  "totem/11": {
+    "sounds": [
+      "alphavisuals:totem/11"
+    ]
+  },
+  "totem/12": {
+    "sounds": [
+      "alphavisuals:totem/12"
+    ]
+  },
+  "totem/13": {
+    "sounds": [
+      "alphavisuals:totem/13"
+    ]
+  },
+  "totem/14": {
+    "sounds": [
+      "alphavisuals:totem/14"
+    ]
+  },
+  "totem/15": {
+    "sounds": [
+      "alphavisuals:totem/15"
+    ]
+  }
+}

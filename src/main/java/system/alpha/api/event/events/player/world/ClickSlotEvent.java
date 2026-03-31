@@ -1,0 +1,12 @@
+package system.alpha.api.event.events.player.world;
+
+import lombok.Getter;
+import net.minecraft.screen.slot.SlotActionType;
+import system.alpha.api.event.events.Event;
+
+public class ClickSlotEvent extends Event<ClickSlotEvent.ClickSlotEventData> {
+    @Getter private static final ClickSlotEvent instance = new ClickSlotEvent();
+
+    public record ClickSlotEventData(SlotActionType slotActionType, int slot, int button, int id) {
+    }
+}
