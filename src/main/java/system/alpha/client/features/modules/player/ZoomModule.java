@@ -22,7 +22,7 @@ public class ZoomModule extends Module {
     private static final ZoomModule instance = new ZoomModule();
 
     private final SliderSetting zoomStrength = new SliderSetting("Сила зума")
-            .value(3.0f)
+            .value(4.0f)
             .range(1.0f, 15.0f)
             .step(0.1f);
 
@@ -30,40 +30,34 @@ public class ZoomModule extends Module {
             .value(true);
 
     private final SliderSetting smoothSpeed = new SliderSetting("Скорость плавности")
-            .value(0.2f)
-            .range(0.05f, 1.0f)
+            .value(0.35f)
+            .range(0.1f, 0.8f)
             .step(0.05f)
             .setVisible(smoothZoom::getValue);
 
     private final AnimationUtil zoomAnimation = new AnimationUtil();
-    private final AnimationUtil fovAnimation = new AnimationUtil();
-    private final AnimationUtil zoomStrengthAnimation = new AnimationUtil();
 
-    // Состояние зума
     private float originalFov = -1.0f;
     private boolean isZoomKeyPressed = false;
     private boolean isGuiOpen = false;
     private long lastScrollTime = 0;
     private static final int ZOOM_KEY = 67; // Клавиша C
 
-    // Текущие значения
-    private float currentFov = -1.0f;
-    private float currentZoomStrength = 3.0f;
-    private boolean wasZooming = false;
+    private float targetZoomStrength;
+    private float currentZoomStrength;
+    private long lastZoomStrengthChange = 0;
 
     public ZoomModule() {
         addSettings(zoomStrength, smoothZoom, smoothSpeed);
+        targetZoomStrength = zoomStrength.getValue();
         currentZoomStrength = zoomStrength.getValue();
-        zoomStrengthAnimation.setValue(zoomStrength.getValue());
     }
 
     @Override
     public void onEvent() {
-        // Обработка событий клавиатуры
         EventListener keyEvent = KeyEvent.getInstance().subscribe(new Listener<>(event -> {
             if (!isEnabled()) return;
 
-            // Обработка клавиши C
             if (event.key() == ZOOM_KEY) {
                 if (event.action() == 1) { // Нажатие
                     if (!isZoomKeyPressed) {
@@ -78,35 +72,37 @@ public class ZoomModule extends Module {
                 }
             }
 
-            // Колесико мыши (кнопки 3 и 4)
             if ((event.key() == 3 || event.key() == 4) && event.action() == 1) {
                 handleMouseScroll(event.key());
             }
         }));
 
-        // Обновление состояния
         EventListener tickEvent = TickEvent.getInstance().subscribe(new Listener<>(event -> {
-            // Обновляем анимации
             zoomAnimation.update();
-            fovAnimation.update();
-            zoomStrengthAnimation.update();
 
-            // Проверяем, открыт ли GUI
             isGuiOpen = isAnyGuiOpen();
 
-            // Если открыт GUI и зум активен, отключаем его
-            if (isGuiOpen && (isZoomKeyPressed || zoomAnimation.getValue() > 0.001)) {
+            if (isGuiOpen && isZoomKeyPressed) {
                 isZoomKeyPressed = false;
                 startZoomAnimation(false);
             }
 
-            // Синхронизируем силу зума с настройкой
-            if (Math.abs(currentZoomStrength - zoomStrength.getValue()) > 0.01f) {
-                zoomStrengthAnimation.run(zoomStrength.getValue(), 200L, Easing.CUBIC_BOTH);
+            long currentTime = System.currentTimeMillis();
+            if (Math.abs(targetZoomStrength - zoomStrength.getValue()) > 0.01f) {
+                targetZoomStrength = zoomStrength.getValue();
+                lastZoomStrengthChange = currentTime;
             }
 
-            // Получаем актуальное значение силы зума из анимации
-            currentZoomStrength = (float) zoomStrengthAnimation.getValue();
+            if (currentTime - lastZoomStrengthChange < 500) {
+                float step = 0.1f;
+                if (Math.abs(currentZoomStrength - targetZoomStrength) > step) {
+                    currentZoomStrength = MathUtil.lerp(currentZoomStrength, targetZoomStrength, 0.15f);
+                } else {
+                    currentZoomStrength = targetZoomStrength;
+                }
+            } else {
+                currentZoomStrength = targetZoomStrength;
+            }
         }));
 
         addEvents(keyEvent, tickEvent);
@@ -116,26 +112,20 @@ public class ZoomModule extends Module {
     public void onEnable() {
         super.onEnable();
         originalFov = -1.0f;
-        currentFov = -1.0f;
-        currentZoomStrength = zoomStrength.getValue();
         isZoomKeyPressed = false;
         isGuiOpen = false;
-        wasZooming = false;
-
-        // Сбрасываем анимации
+        targetZoomStrength = zoomStrength.getValue();
+        currentZoomStrength = zoomStrength.getValue();
         zoomAnimation.setValue(0.0);
-        fovAnimation.setValue(0.0);
-        zoomStrengthAnimation.setValue(zoomStrength.getValue());
     }
 
     @Override
     public void onDisable() {
         super.onDisable();
         originalFov = -1.0f;
-        currentFov = -1.0f;
         isZoomKeyPressed = false;
         isGuiOpen = false;
-        wasZooming = false;
+        zoomAnimation.setValue(0.0);
     }
 
     private boolean isAnyGuiOpen() {
@@ -143,43 +133,8 @@ public class ZoomModule extends Module {
             return false;
         }
 
-        if (mc.currentScreen instanceof net.minecraft.client.gui.screen.GameMenuScreen) {
-            return false;
-        }
-
-        return true;
-    }
-
-    private boolean shouldDisableZoomForCurrentScreen() {
-        if (mc.currentScreen == null) {
-            return false;
-        }
-
-        if (mc.currentScreen instanceof ChatScreen ||
-                mc.currentScreen instanceof InventoryScreen ||
-                mc.currentScreen instanceof GenericContainerScreen ||
-                mc.currentScreen instanceof ShulkerBoxScreen ||
-                mc.currentScreen instanceof HopperScreen ||
-                mc.currentScreen instanceof FurnaceScreen ||
-                mc.currentScreen instanceof BlastFurnaceScreen ||
-                mc.currentScreen instanceof SmokerScreen ||
-                mc.currentScreen instanceof BrewingStandScreen ||
-                mc.currentScreen instanceof BeaconScreen ||
-                mc.currentScreen instanceof AnvilScreen ||
-                mc.currentScreen instanceof EnchantmentScreen ||
-                mc.currentScreen instanceof GrindstoneScreen ||
-                mc.currentScreen instanceof LoomScreen ||
-                mc.currentScreen instanceof CartographyTableScreen ||
-                mc.currentScreen instanceof StonecutterScreen ||
-                mc.currentScreen instanceof SmithingScreen ||
-                mc.currentScreen instanceof MerchantScreen ||
-                mc.currentScreen instanceof CraftingScreen ||
-                mc.currentScreen instanceof HorseScreen ||
-                mc.currentScreen instanceof CreativeInventoryScreen) {
-            return true;
-        }
-
-        return false;
+        return !(mc.currentScreen instanceof GameMenuScreen) &&
+                !(mc.currentScreen instanceof ChatScreen);
     }
 
     private void startZoomAnimation(boolean zoomIn) {
@@ -191,17 +146,18 @@ public class ZoomModule extends Module {
             return;
         }
 
-        long animationTime = smoothZoom.getValue() ? 300L : 100L;
+        long animationTime = zoomIn ? 400L : 350L;
+        Easing easing = zoomIn ? Easing.CUBIC_OUT : Easing.QUAD_OUT;
 
         if (zoomIn) {
-            zoomAnimation.run(1.0, animationTime, Easing.BACK_OUT);
+            zoomAnimation.run(1.0, animationTime, easing);
         } else {
-            zoomAnimation.run(0.0, animationTime, Easing.CUBIC_OUT);
+            zoomAnimation.run(0.0, animationTime, easing);
         }
     }
 
     private void handleMouseScroll(int button) {
-        if (isGuiOpen) {
+        if (isGuiOpen || !isZoomKeyPressed) {
             return;
         }
 
@@ -209,11 +165,14 @@ public class ZoomModule extends Module {
         if (currentTime - lastScrollTime < 50) return;
         lastScrollTime = currentTime;
 
+        float newValue = zoomStrength.getValue();
         if (button == 3) {
-            zoomStrength.setValue(Math.max(1.0f, zoomStrength.getValue() - 1f));
+            newValue = Math.max(1.0f, newValue - 0.5f);
         } else if (button == 4) {
-            zoomStrength.setValue(Math.min(15.0f, zoomStrength.getValue() + 1f));
+            newValue = Math.min(15.0f, newValue + 0.5f);
         }
+
+        zoomStrength.setValue(newValue);
     }
 
     public float applyZoom(float baseFov, float tickDelta) {
@@ -233,34 +192,35 @@ public class ZoomModule extends Module {
 
         if (originalFov < 0.0f) {
             originalFov = baseFov;
-            currentFov = baseFov;
         }
 
-        float targetFov = originalFov / currentZoomStrength;
+        float targetFov = originalFov / Math.max(1.0f, currentZoomStrength);
 
         if (!smoothZoom.getValue()) {
-            if (isZoomKeyPressed) {
-                return targetFov;
-            } else {
-                return originalFov;
-            }
+            return isZoomKeyPressed ? targetFov : originalFov;
         }
 
         double zoomProgress = zoomAnimation.getValue();
 
-        if (zoomProgress <= 0.001) {
-            currentFov = originalFov;
-        } else if (zoomProgress >= 0.999) {
-            currentFov = targetFov;
-        } else {
-            float interpolationSpeed = smoothSpeed.getValue() * 10f;
-            float lerpAmount = Math.min(1.0f, tickDelta * interpolationSpeed);
-            float targetProgress = isZoomKeyPressed ? 1.0f : 0.0f;
-            zoomProgress = MathUtil.lerp((float) zoomProgress, targetProgress, lerpAmount);
-
-            currentFov = MathUtil.lerp(originalFov, targetFov, (float) zoomProgress);
+        if (isZoomKeyPressed && zoomProgress < 0.99) {
+            float targetProgress = 1.0f;
+            float currentProgress = (float) zoomProgress;
+            float newProgress = MathUtil.lerp(currentProgress, targetProgress, 0.15f);
+            zoomAnimation.setValue(Math.min(1.0, newProgress));
+            zoomProgress = zoomAnimation.getValue();
+        } else if (!isZoomKeyPressed && zoomProgress > 0.01) {
+            float targetProgress = 0.0f;
+            float currentProgress = (float) zoomProgress;
+            float newProgress = MathUtil.lerp(currentProgress, targetProgress, 0.2f);
+            zoomAnimation.setValue(Math.max(0.0, newProgress));
+            zoomProgress = zoomAnimation.getValue();
         }
 
-        return currentFov;
+        float smoothProgress = (float) easeOutCubic(zoomProgress);
+        return MathUtil.lerp(originalFov, targetFov, smoothProgress);
+    }
+
+    private double easeOutCubic(double x) {
+        return 1 - Math.pow(1 - x, 3);
     }
 }
