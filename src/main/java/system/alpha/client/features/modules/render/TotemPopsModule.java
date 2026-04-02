@@ -32,14 +32,15 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
 
-@ModuleRegister(name = "TotemPops", category = Category.RENDER, description = "При потери тотема вверх взлетает ваш силуэт.")
+@ModuleRegister(name = "TotemPops", category = Category.RENDER, description = "Меняет анимацию удара.")
 public class TotemPopsModule extends Module {
     @Getter
     private static final TotemPopsModule instance = new TotemPopsModule();
 
+    // Настройки
     private final ModeSetting mode = new ModeSetting("Режим")
-            .value("Angel")
-            .values("Shatter", "Angel");
+            .value("Ангел")
+            .values("Разлетание", "Ангел");
 
     private final BooleanSetting outline = new BooleanSetting("Обводка")
             .value(false);
@@ -86,16 +87,17 @@ public class TotemPopsModule extends Module {
 
             if (!showSelf.getValue() && mc.player != null && le.getId() == mc.player.getId()) return;
 
-            if (mode.getValue().equals("Shatter")) addShatter(le);
+            if (mode.getValue().equals("Разлетание")) addShatter(le);
             else addGhost(le);
         }));
 
         EventListener renderEvent = Render3DEvent.getInstance().subscribe(new Listener<>(event -> {
             if (mc.world == null || mc.player == null) return;
 
-            boolean sh = mode.getValue().equals("Shatter");
+            boolean sh = mode.getValue().equals("Разлетание");
             boolean ol = outline.getValue();
 
+            // Получаем позицию камеры для правильного рендеринга
             Vec3d cameraPos = mc.getEntityRenderDispatcher().camera.getPos();
 
             if (!sh) {

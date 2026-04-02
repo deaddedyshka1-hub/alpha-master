@@ -1,4 +1,4 @@
-package system.alpha.client.features.modules.other;
+package system.alpha.client.features.modules.player;
 
 import lombok.Getter;
 import system.alpha.api.event.EventListener;
@@ -14,7 +14,7 @@ import system.alpha.api.utils.math.TimerUtil;
 
 import java.util.function.Supplier;
 
-@ModuleRegister(name = "Tape Mouse", category = Category.OTHER, description = "Автоматически использует клавиши мыши.")
+@ModuleRegister(name = "Tape Mouse", category = Category.PLAYER, description = "Автоматически использует клавиши мыши.")
 public class TapeMouseModule extends Module {
     @Getter private static final TapeMouseModule instance = new TapeMouseModule();
 

@@ -7,7 +7,9 @@ import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import system.alpha.client.features.modules.other.ChatUtilsModule;
 import system.alpha.client.ui.widget.WidgetManager;
 import system.alpha.client.ui.widget.overlay.notify.NotificationWidget;
 
@@ -39,6 +41,19 @@ public class MixinChatHud {
             }
             widget.addNotif(sender + " просит о спеке!");
         }
+    }
+    @ModifyVariable(method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
+            at = @At("HEAD"),
+            argsOnly = true)
+    private Text addTimeToMessage(Text message) {
+        ChatUtilsModule module = ChatUtilsModule.getInstance();
+        if (module != null && module.shouldShowTime()) {
+            module.updateFormatter();
+            String time = module.getFormattedTime();
+            return Text.literal(time).append(message);
+        }
+
+        return message;
     }
 }
 

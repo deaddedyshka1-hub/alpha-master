@@ -11,6 +11,7 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -91,11 +92,6 @@ public class PointersModule extends Module {
     @Override
     public void onEvent() {
         EventListener renderEvent = Render2DEvent.getInstance().subscribe(new Listener<>(2, event -> {
-            // Проверяем, открыт ли какой-либо контейнер (инвентарь, сундук и т.д.)
-            if (mc.currentScreen instanceof HandledScreen) {
-                return;
-            }
-
             alive.clear();
 
             yawAnimation.update();
@@ -106,6 +102,9 @@ public class PointersModule extends Module {
 
             for (Entity entity : mc.world.getEntities()) {
                 if (mc.player == entity) continue;
+
+                // Пропускаем невидимых существ
+                if (isInvisible(entity)) continue;
 
                 boolean isValid = false;
 
@@ -154,6 +153,19 @@ public class PointersModule extends Module {
         }));
 
         addEvents(renderEvent);
+    }
+
+    // Метод проверки на невидимость
+    private boolean isInvisible(Entity entity) {
+        // Предметы не могут быть невидимыми
+        if (entity instanceof ItemEntity) return false;
+
+        // Для живых существ проверяем эффект невидимости
+        if (entity instanceof LivingEntity living) {
+            return living.hasStatusEffect(StatusEffects.INVISIBILITY);
+        }
+
+        return false;
     }
 
     private void drawPointerToEntity(Render2DEvent.Render2DEventData event, Entity entity, AnimationUtil spawn){
