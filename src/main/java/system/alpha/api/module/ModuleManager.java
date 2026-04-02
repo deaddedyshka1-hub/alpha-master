@@ -24,6 +24,8 @@ public class ModuleManager {
                 AmbienceModule.getInstance(),
                 InterfaceModule.getInstance(),
                 TPAcceptModule.getInstance(),
+                CapeModule.getInstance(),
+                FakePlayerModule.getInstance(),
                 RemovalsModule.getInstance(),
                 SwingAnimationModule.getInstance(),
                 ViewModelModule.getInstance(),
