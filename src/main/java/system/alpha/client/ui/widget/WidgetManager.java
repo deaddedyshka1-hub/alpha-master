@@ -22,7 +22,6 @@ public class WidgetManager {
                 new WatermarkWidget(),
                 new KeybindsWidget(),
                 new PotionsWidget(),
-                new CooldownsWidget(),
                 new HotbarWidget(),
                 new ArmorWidget(),
                 new TargetInfoWidget(),

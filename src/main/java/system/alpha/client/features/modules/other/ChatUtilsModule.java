@@ -1,5 +1,6 @@
 package system.alpha.client.features.modules.other;
 
+import lombok.Getter;
 import system.alpha.api.module.Category;
 import system.alpha.api.module.Module;
 import system.alpha.api.module.ModuleRegister;
@@ -12,7 +13,8 @@ import java.time.format.DateTimeFormatter;
 @ModuleRegister(name = "TimeStamps", category = Category.OTHER, description = "Добавляет время к сообщениям в чате")
 public class ChatUtilsModule extends Module {
 
-    private static ChatUtilsModule instance;
+    @Getter
+    private static final ChatUtilsModule instance = new ChatUtilsModule();
 
     private final BooleanSetting enabled = new BooleanSetting("Показывать время").value(true);
     private final ModeSetting format = new ModeSetting("Формат")
@@ -24,7 +26,6 @@ public class ChatUtilsModule extends Module {
     private DateTimeFormatter formatter;
 
     public ChatUtilsModule() {
-        instance = this;
         addSettings(enabled, format, showSeconds, brackets);
         updateFormatter();
     }

@@ -25,7 +25,7 @@ public class ModuleManager {
                 InterfaceModule.getInstance(),
                 TPAcceptModule.getInstance(),
                 CapeModule.getInstance(),
-                FakePlayerModule.getInstance(),
+                ChatUtilsModule.getInstance(),
                 RemovalsModule.getInstance(),
                 SwingAnimationModule.getInstance(),
                 ViewModelModule.getInstance(),
@@ -48,7 +48,8 @@ public class ModuleManager {
                 ToggleSoundsModule.getInstance(),
                 CrashNotificationModule.getInstance(),
                 MotionBlurModule.getInstance(),
-                NightVisionModule.getInstance(),TrailsModule.getInstance(),
+                NightVisionModule.getInstance(),
+                TrailsModule.getInstance(),
                 TargetEspModule.getInstance()
         );
 

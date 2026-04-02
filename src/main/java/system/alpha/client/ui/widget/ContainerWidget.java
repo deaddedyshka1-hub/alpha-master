@@ -71,23 +71,19 @@ public abstract class ContainerWidget extends Widget {
         float animWidth = (float) widthAnimation.getValue();
         float animHeight = (float) heightAnimation.getValue();
 
-        // 🔥 Инициализация процентов один раз
         if (xPercent == -1f) {
             xPercent = getDraggable().getX() / screenWidth;
             yPercent = getDraggable().getY() / screenHeight;
         }
 
-        // Если пользователь двигает — обновляем проценты
         if (getDraggable().isDragging()) {
             xPercent = getDraggable().getX() / screenWidth;
             yPercent = getDraggable().getY() / screenHeight;
         }
 
-        // Пересчёт позиции от процентов
         float x = xPercent * screenWidth;
         float y = yPercent * screenHeight;
 
-        // Лёгкий clamp чтобы не вылез за границы
         x = Math.max(0, Math.min(x, screenWidth - animWidth));
         y = Math.max(0, Math.min(y, screenHeight - animHeight));
 
