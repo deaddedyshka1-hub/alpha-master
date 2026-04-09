@@ -3,7 +3,10 @@ package system.alpha.inject.client;
 import net.minecraft.client.gui.hud.ChatHud;
 import net.minecraft.client.gui.hud.MessageIndicator;
 import net.minecraft.network.message.MessageSignatureData;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.Style;
 import net.minecraft.text.Text;
+import net.minecraft.text.TextColor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -13,8 +16,11 @@ import system.alpha.client.features.modules.other.ChatUtilsModule;
 import system.alpha.client.ui.widget.WidgetManager;
 import system.alpha.client.ui.widget.overlay.notify.NotificationWidget;
 
+import java.awt.*;
+
 @Mixin(ChatHud.class)
 public class MixinChatHud {
+
     @Inject(method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V", at = @At("HEAD"))
     private void onChat(Text message, MessageSignatureData signature, MessageIndicator indicator, CallbackInfo ci) {
         NotificationWidget widget = (NotificationWidget) WidgetManager.getInstance().getWidgets().stream()
@@ -42,6 +48,7 @@ public class MixinChatHud {
             widget.addNotif(sender + " просит о спеке!");
         }
     }
+
     @ModifyVariable(method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
             at = @At("HEAD"),
             argsOnly = true)
@@ -49,11 +56,14 @@ public class MixinChatHud {
         ChatUtilsModule module = ChatUtilsModule.getInstance();
         if (module != null && module.shouldShowTime()) {
             module.updateFormatter();
-            String time = module.getFormattedTime();
-            return Text.literal(time).append(message);
-        }
+            String timeText = module.getFormattedTime();
+            Color color = module.getTimeColor();
 
+            int rgb = color.getRGB();
+            Text coloredTime = Text.literal(timeText).setStyle(Style.EMPTY.withColor(TextColor.fromRgb(rgb)));
+
+            return Text.literal("").append(coloredTime).append(message);
+        }
         return message;
     }
 }
-

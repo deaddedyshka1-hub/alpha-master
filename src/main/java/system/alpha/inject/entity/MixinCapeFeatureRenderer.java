@@ -1,6 +1,7 @@
 package system.alpha.inject.entity;
 
 import com.mojang.authlib.GameProfile;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.util.SkinTextures;
 import net.minecraft.util.Identifier;
@@ -23,16 +24,22 @@ public class MixinCapeFeatureRenderer {
     public void onGetSkinTextures(CallbackInfoReturnable<SkinTextures> cir) {
         CapeModule module = CapeModule.getInstance();
 
-        if (module != null) {
-            SkinTextures original = cir.getReturnValue();
-            cir.setReturnValue(new SkinTextures(
-                    original.texture(),
-                    original.textureUrl(),
-                    CUSTOM_CAPE,
-                    original.elytraTexture(),
-                    original.model(),
-                    original.secure()
-            ));
-        }
+        if (module == null || !module.isEnabled()) return;
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        String playerName = profile.getName();
+        boolean isSelf = mc.player != null && mc.player.getGameProfile().getName().equals(playerName);
+
+        if (!module.shouldShowCape(playerName, isSelf)) return;
+
+        SkinTextures original = cir.getReturnValue();
+        cir.setReturnValue(new SkinTextures(
+                original.texture(),
+                original.textureUrl(),
+                CUSTOM_CAPE,
+                original.elytraTexture(),
+                original.model(),
+                original.secure()
+        ));
     }
 }

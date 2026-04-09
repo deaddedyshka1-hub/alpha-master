@@ -38,6 +38,7 @@ public class ModuleManager {
                 JumpCircleModule.getInstance(),
                 CrosshairModule.getInstance(),
                 CustomHitboxesModule.getInstance(),
+                AspectRatioModule.getInstance(),
                 CustomHatModule.getInstance(),
                 BlockOverlayModule.getInstance(),
                 TotemPopsModule.getInstance(),

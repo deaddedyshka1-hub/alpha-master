@@ -12,8 +12,6 @@ import system.alpha.api.module.Module;
 import system.alpha.api.module.ModuleRegister;
 import system.alpha.api.module.setting.BooleanSetting;
 import system.alpha.api.module.setting.SliderSetting;
-import system.alpha.api.utils.animation.AnimationUtil;
-import system.alpha.api.utils.animation.Easing;
 import system.alpha.api.utils.math.MathUtil;
 
 @ModuleRegister(name = "Zoom", category = Category.PLAYER, description = "Позволяет приближать, как было в 1.16.5")
@@ -26,30 +24,15 @@ public class ZoomModule extends Module {
             .range(1.0f, 15.0f)
             .step(0.1f);
 
-    private final BooleanSetting smoothZoom = new BooleanSetting("Плавный зум")
-            .value(true);
-
-    private final SliderSetting smoothSpeed = new SliderSetting("Скорость плавности")
-            .value(0.35f)
-            .range(0.1f, 0.8f)
-            .step(0.05f)
-            .setVisible(smoothZoom::getValue);
-
-    private final AnimationUtil zoomAnimation = new AnimationUtil();
-
     private float originalFov = -1.0f;
     private boolean isZoomKeyPressed = false;
-    private boolean isGuiOpen = false;
     private long lastScrollTime = 0;
-    private static final int ZOOM_KEY = 67; // Клавиша C
+    private static final int ZOOM_KEY = 67;
 
-    private float targetZoomStrength;
     private float currentZoomStrength;
-    private long lastZoomStrengthChange = 0;
 
     public ZoomModule() {
-        addSettings(zoomStrength, smoothZoom, smoothSpeed);
-        targetZoomStrength = zoomStrength.getValue();
+        addSettings(zoomStrength);
         currentZoomStrength = zoomStrength.getValue();
     }
 
@@ -59,15 +42,13 @@ public class ZoomModule extends Module {
             if (!isEnabled()) return;
 
             if (event.key() == ZOOM_KEY) {
-                if (event.action() == 1) { // Нажатие
-                    if (!isZoomKeyPressed) {
+                if (event.action() == 1) {
+                    if (!isZoomKeyPressed && !isAnyGuiOpen()) {
                         isZoomKeyPressed = true;
-                        startZoomAnimation(true);
                     }
-                } else if (event.action() == 0) { // Отпускание
+                } else if (event.action() == 0) {
                     if (isZoomKeyPressed) {
                         isZoomKeyPressed = false;
-                        startZoomAnimation(false);
                     }
                 }
             }
@@ -78,31 +59,11 @@ public class ZoomModule extends Module {
         }));
 
         EventListener tickEvent = TickEvent.getInstance().subscribe(new Listener<>(event -> {
-            zoomAnimation.update();
-
-            isGuiOpen = isAnyGuiOpen();
-
-            if (isGuiOpen && isZoomKeyPressed) {
+            if (isAnyGuiOpen() && isZoomKeyPressed) {
                 isZoomKeyPressed = false;
-                startZoomAnimation(false);
             }
 
-            long currentTime = System.currentTimeMillis();
-            if (Math.abs(targetZoomStrength - zoomStrength.getValue()) > 0.01f) {
-                targetZoomStrength = zoomStrength.getValue();
-                lastZoomStrengthChange = currentTime;
-            }
-
-            if (currentTime - lastZoomStrengthChange < 500) {
-                float step = 0.1f;
-                if (Math.abs(currentZoomStrength - targetZoomStrength) > step) {
-                    currentZoomStrength = MathUtil.lerp(currentZoomStrength, targetZoomStrength, 0.15f);
-                } else {
-                    currentZoomStrength = targetZoomStrength;
-                }
-            } else {
-                currentZoomStrength = targetZoomStrength;
-            }
+            currentZoomStrength = zoomStrength.getValue();
         }));
 
         addEvents(keyEvent, tickEvent);
@@ -113,10 +74,7 @@ public class ZoomModule extends Module {
         super.onEnable();
         originalFov = -1.0f;
         isZoomKeyPressed = false;
-        isGuiOpen = false;
-        targetZoomStrength = zoomStrength.getValue();
         currentZoomStrength = zoomStrength.getValue();
-        zoomAnimation.setValue(0.0);
     }
 
     @Override
@@ -124,40 +82,17 @@ public class ZoomModule extends Module {
         super.onDisable();
         originalFov = -1.0f;
         isZoomKeyPressed = false;
-        isGuiOpen = false;
-        zoomAnimation.setValue(0.0);
     }
 
     private boolean isAnyGuiOpen() {
         if (mc.currentScreen == null) {
             return false;
         }
-
-        return !(mc.currentScreen instanceof GameMenuScreen) &&
-                !(mc.currentScreen instanceof ChatScreen);
-    }
-
-    private void startZoomAnimation(boolean zoomIn) {
-        if (!smoothZoom.getValue() || !isEnabled()) {
-            return;
-        }
-
-        if (zoomIn && isGuiOpen) {
-            return;
-        }
-
-        long animationTime = zoomIn ? 400L : 350L;
-        Easing easing = zoomIn ? Easing.CUBIC_OUT : Easing.QUAD_OUT;
-
-        if (zoomIn) {
-            zoomAnimation.run(1.0, animationTime, easing);
-        } else {
-            zoomAnimation.run(0.0, animationTime, easing);
-        }
+        return true;
     }
 
     private void handleMouseScroll(int button) {
-        if (isGuiOpen || !isZoomKeyPressed) {
+        if (isAnyGuiOpen() || !isZoomKeyPressed) {
             return;
         }
 
@@ -176,14 +111,14 @@ public class ZoomModule extends Module {
     }
 
     public float applyZoom(float baseFov, float tickDelta) {
-        if (!isEnabled() || isGuiOpen) {
+        if (!isEnabled() || isAnyGuiOpen()) {
             if (originalFov != -1.0f) {
                 originalFov = -1.0f;
             }
             return baseFov;
         }
 
-        if (!isZoomKeyPressed && zoomAnimation.getValue() <= 0.001) {
+        if (!isZoomKeyPressed) {
             if (originalFov != -1.0f) {
                 originalFov = -1.0f;
             }
@@ -194,33 +129,6 @@ public class ZoomModule extends Module {
             originalFov = baseFov;
         }
 
-        float targetFov = originalFov / Math.max(1.0f, currentZoomStrength);
-
-        if (!smoothZoom.getValue()) {
-            return isZoomKeyPressed ? targetFov : originalFov;
-        }
-
-        double zoomProgress = zoomAnimation.getValue();
-
-        if (isZoomKeyPressed && zoomProgress < 0.99) {
-            float targetProgress = 1.0f;
-            float currentProgress = (float) zoomProgress;
-            float newProgress = MathUtil.lerp(currentProgress, targetProgress, 0.15f);
-            zoomAnimation.setValue(Math.min(1.0, newProgress));
-            zoomProgress = zoomAnimation.getValue();
-        } else if (!isZoomKeyPressed && zoomProgress > 0.01) {
-            float targetProgress = 0.0f;
-            float currentProgress = (float) zoomProgress;
-            float newProgress = MathUtil.lerp(currentProgress, targetProgress, 0.2f);
-            zoomAnimation.setValue(Math.max(0.0, newProgress));
-            zoomProgress = zoomAnimation.getValue();
-        }
-
-        float smoothProgress = (float) easeOutCubic(zoomProgress);
-        return MathUtil.lerp(originalFov, targetFov, smoothProgress);
-    }
-
-    private double easeOutCubic(double x) {
-        return 1 - Math.pow(1 - x, 3);
+        return originalFov / Math.max(1.0f, currentZoomStrength);
     }
 }

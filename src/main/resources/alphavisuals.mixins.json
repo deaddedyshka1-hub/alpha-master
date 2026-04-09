@@ -8,6 +8,8 @@
   "client": [
     "client.MixinChatInputSuggestor",
     "entity.MixinCapeFeatureRenderer",
+    "client.MixinChatHudSize",
+    "other.MixinAspectRatio",
     "client.MixinClientConnection",
     "client.MixinClientPlayerInteractionManager",
     "client.MixinClientPlayNetworkHandler",
