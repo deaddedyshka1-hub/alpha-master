@@ -20,7 +20,6 @@ public enum Icons {
     SINGLEPLAYER("U"),
 
     //Music
-
     STEP_B("K"),
     STEP_F("L"),
     PAUSE("O"),
@@ -36,13 +35,5 @@ public enum Icons {
 
 
     private final String letter;
-
-    public static Icons find(String name) {
-        try {
-            return Icons.valueOf(name);
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
-    }
 
 }

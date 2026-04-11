@@ -26,22 +26,32 @@ import system.alpha.api.event.events.render.EntityColorEvent;
 import system.alpha.api.system.backend.SharedClass;
 import system.alpha.api.utils.color.ColorHit;
 import system.alpha.api.utils.color.UIColors;
+import system.alpha.api.utils.render.other.CustomModelsRenderer;
+import system.alpha.api.utils.render.other.RenderStateEntityCache;
 import system.alpha.api.utils.rotation.manager.Rotation;
 import system.alpha.api.utils.rotation.manager.RotationManager;
 import system.alpha.api.utils.rotation.manager.RotationPlan;
+import system.alpha.client.features.modules.player.CustomModelType;
+import system.alpha.client.features.modules.player.CustomModelsModule;
 import system.alpha.client.features.modules.render.HitColorModule;
 
 import java.awt.*;
 
 @Mixin(LivingEntityRenderer.class)
 public abstract class MixinLivingEntityRenderer<T extends LivingEntity, S extends LivingEntityRenderState, M extends EntityModel<? super S>> {
+
     private static final ThreadLocal<Boolean> SV_SHOULD_TINT = ColorHit.SHOULD_TINT;
     private static final Identifier SV_WHITE = Identifier.of("minecraft", "textures/misc/white.png");
-
     private static final ThreadLocal<Boolean> WAS_HURT = ThreadLocal.withInitial(() -> false);
 
-    @ModifyExpressionValue(method = "updateRenderState*", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/LivingEntity;getLerpedPitch(F)F"))
-    private float updateVisalPitch(float original, LivingEntity entity, S state, float tickDelta) {
+    @Inject(method = "updateRenderState(Lnet/minecraft/entity/LivingEntity;Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;F)V", at = @At("TAIL"))
+    private void storeRenderStateEntity(LivingEntity entity, LivingEntityRenderState state, float tickDelta, CallbackInfo ci) {
+        RenderStateEntityCache.put(state, entity);
+    }
+
+    @ModifyExpressionValue(method = "updateRenderState(Lnet/minecraft/entity/LivingEntity;Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;F)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/LivingEntity;getLerpedPitch(F)F"))
+    private float updateVisualPitch(float original, LivingEntity entity, S state, float tickDelta) {
         if (entity != SharedClass.player()) {
             return original;
         }
@@ -62,8 +72,19 @@ public abstract class MixinLivingEntityRenderer<T extends LivingEntity, S extend
     @Nullable
     protected abstract RenderLayer getRenderLayer(LivingEntityRenderState state, boolean showBody, boolean translucent, boolean showOutline);
 
-    @Redirect(method = "render(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;" + "Lnet/minecraft/client/util/math/MatrixStack;" + "Lnet/minecraft/client/render/VertexConsumerProvider;I)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/entity/LivingEntityRenderer;" + "getRenderLayer(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;ZZZ)" + "Lnet/minecraft/client/render/RenderLayer;"))
+    @Redirect(method = "render(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/entity/LivingEntityRenderer;getRenderLayer(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;ZZZ)Lnet/minecraft/client/render/RenderLayer;"))
     private RenderLayer renderHook(LivingEntityRenderer instance, LivingEntityRenderState state, boolean showBody, boolean translucent, boolean showOutline) {
+        LivingEntity entity = RenderStateEntityCache.get(state);
+        CustomModelsModule customModels = CustomModelsModule.getInstance();
+
+        if (entity != null && customModels.shouldApplyTo(entity)) {
+            CustomModelType type = customModels.getSelectedType();
+            if (type != null) {
+                return showOutline ? RenderLayer.getOutline(type.getTexture()) : RenderLayer.getEntityTranslucent(type.getTexture());
+            }
+        }
+
         if (!translucent && state.width == 0.6F) {
             int defaultColor = -1;
             EntityColorEvent.EntityColorEventData eventData = new EntityColorEvent.EntityColorEventData(defaultColor);
@@ -76,14 +97,29 @@ public abstract class MixinLivingEntityRenderer<T extends LivingEntity, S extend
         return this.getRenderLayer(state, showBody, translucent, showOutline);
     }
 
-    @Redirect(method = "render(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/entity/model/EntityModel;render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;III)V"))
-    private void renderModelHook(EntityModel<?> instance, MatrixStack matrixStack, VertexConsumer vertexConsumer, int i, int j, int l, @Local(ordinal = 0, argsOnly = true) LivingEntityRenderState renderState) {
-        EntityColorEvent.EntityColorEventData event = new EntityColorEvent.EntityColorEventData(l);
-        if (renderState.invisibleToPlayer) EntityColorEvent.getInstance().call(event);
-        instance.render(matrixStack, vertexConsumer, i, j, event.color());
+    @Redirect(method = "render(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/entity/model/EntityModel;render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;III)V"))
+    private void renderModelHook(EntityModel<?> instance, MatrixStack matrixStack, VertexConsumer vertexConsumer,
+                                 int light, int overlay, int color, @Local(ordinal = 0, argsOnly = true) LivingEntityRenderState renderState) {
+        LivingEntity entity = RenderStateEntityCache.get(renderState);
+        CustomModelsModule customModels = CustomModelsModule.getInstance();
+
+        EntityColorEvent.EntityColorEventData event = new EntityColorEvent.EntityColorEventData(color);
+        EntityColorEvent.getInstance().call(event);
+        int finalColor = event.color();
+
+        if (entity != null && customModels.shouldApplyTo(entity)) {
+            CustomModelType type = customModels.getSelectedType();
+            if (type != null && CustomModelsRenderer.render(type, instance, matrixStack, vertexConsumer, light, overlay, finalColor)) {
+                return;
+            }
+        }
+
+        instance.render(matrixStack, vertexConsumer, light, overlay, finalColor);
     }
 
-    @Inject(method = "render(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V", at = @At("HEAD"))
+    @Inject(method = "render(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V",
+            at = @At("HEAD"))
     private void prepareTint(S state, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
         HitColorModule module = HitColorModule.getInstance();
         if (module != null && module.isEnabled() && state.hurt) {
@@ -95,29 +131,17 @@ public abstract class MixinLivingEntityRenderer<T extends LivingEntity, S extend
         }
     }
 
-    /**
-     * Overwrite vanilla mix color computation for living entities.
-     *
-     * @author SimpleVisuals
-     * @reason Replace the default hurt red tint with the current theme color
-     * and user-configurable alpha when HitColor is enabled. Uses a thread-local
-     * switch set at render HEAD to avoid fighting with vanilla state.
-     */
     @Overwrite
     public int getMixColor(S state) {
         HitColorModule module = HitColorModule.getInstance();
         if (module != null && module.isEnabled() && Boolean.TRUE.equals(SV_SHOULD_TINT.get())) {
-            Color theme = UIColors.gradient(0, module.alpha.getValue().intValue());
-            int a = (int) (255 * module.alpha.getValue());
+            Color theme = UIColors.gradient(0);
+            int a = (int) (255 * module.alpha.getValue().floatValue());
             return new Color(theme.getRed(), theme.getGreen(), theme.getBlue(), a).getRGB();
         }
         return -1;
     }
 
-    /**
-     * Force a translucent render layer with a white texture when tinting,
-     * so alpha from getMixColor is respected.
-     */
     @Inject(method = "getRenderLayer(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;ZZZ)Lnet/minecraft/client/render/RenderLayer;",
             at = @At("HEAD"), cancellable = true)
     private void forceTranslucentLayer(S state, boolean showBody, boolean translucent, boolean showOutline, CallbackInfoReturnable<RenderLayer> cir) {
@@ -127,19 +151,9 @@ public abstract class MixinLivingEntityRenderer<T extends LivingEntity, S extend
         }
     }
 
-    @Inject(
-            method = "render",
-            at = @At(
-                    value = "TAIL"
-            )
-    )
-    private void cleanupAfterRender(
-            LivingEntityRenderState state,
-            MatrixStack matrices,
-            VertexConsumerProvider vertexConsumers,
-            int light,
-            CallbackInfo ci
-    ) {
+    @Inject(method = "render", at = @At("TAIL"))
+    private void cleanupAfterRender(LivingEntityRenderState state, MatrixStack matrices,
+                                    VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
         SV_SHOULD_TINT.set(false);
 
         if (Boolean.TRUE.equals(WAS_HURT.get())) {

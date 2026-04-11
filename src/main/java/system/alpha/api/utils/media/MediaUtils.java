@@ -22,6 +22,7 @@ public class MediaUtils {
     private static boolean initialized = false;
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private static volatile MediaInfo mediaInfo = null;
+    private static volatile MediaSession currentSession = null;
 
     private static final Map<String, AbstractTexture> textureCache = new ConcurrentHashMap<>();
     private static String previousHash = "";
@@ -52,6 +53,7 @@ public class MediaUtils {
                     List<MediaSession> sessions = MediaTransport.getMediaSessions();
                     if (sessions != null && !sessions.isEmpty()) {
                         MediaSession session = sessions.get(0);
+                        currentSession = session;
                         String hash = "";
 
                         if (session.hasThumbnail()) {
@@ -74,6 +76,7 @@ public class MediaUtils {
                     } else {
                         clearCache();
                         mediaInfo = null;
+                        currentSession = null;
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -83,9 +86,15 @@ public class MediaUtils {
         return mediaInfo;
     }
 
+    public static MediaSession getCurrentSession() {
+        return currentSession;
+    }
+
     private static AbstractTexture convertTexture(ByteBuffer buffer) {
         try {
             byte[] bytes = toByteArray(buffer);
+            if (bytes.length == 0) return null;
+
             BufferedImage img = ImageIO.read(new ByteArrayInputStream(bytes));
             if (img != null) {
                 return convert(img);
@@ -97,15 +106,25 @@ public class MediaUtils {
     }
 
     private static AbstractTexture convert(BufferedImage image) {
+        if (image == null) return null;
+
         int width = image.getWidth();
         int height = image.getHeight();
-        NativeImage img = new NativeImage(width, height, false);
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                img.setColorArgb(x, y, image.getRGB(x, y));
+
+        if (width <= 0 || height <= 0) return null;
+
+        try {
+            NativeImage img = new NativeImage(width, height, false);
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    img.setColorArgb(x, y, image.getRGB(x, y));
+                }
             }
+            return new NativeImageBackedTexture(img);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
-        return new NativeImageBackedTexture(img);
     }
 
     private static String hashBuffer(ByteBuffer buffer) {

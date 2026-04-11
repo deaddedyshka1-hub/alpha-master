@@ -34,7 +34,6 @@ public class WatermarkWidget extends Widget {
     private boolean wasChatOpen = false;
     private float lastWatermarkX, lastWatermarkY, lastWatermarkWidth;
 
-    // Переменные для размеров виджетов
     private float fpsWidth = 0;
     private float bpsWidth = 0;
     private float xyzWidth = 0;
@@ -49,7 +48,6 @@ public class WatermarkWidget extends Widget {
         updateWidgetPositions();
     }
 
-    // Геттеры и сеттеры для настроек
     public boolean isShowBPS() {
         return showBPS;
     }
@@ -77,25 +75,18 @@ public class WatermarkWidget extends Widget {
         saveConfig();
     }
 
-    // Загрузка конфигурации
     public void loadConfig() {
-        WidgetConfigManager configManager =
-                WidgetConfigManager.getInstance();
-
+        WidgetConfigManager configManager = WidgetConfigManager.getInstance();
         showBPS = configManager.getBoolean("Watermark", "showBPS", false);
         showFPS = configManager.getBoolean("Watermark", "showFPS", true);
         showXYZ = configManager.getBoolean("Watermark", "showXYZ", false);
     }
 
-    // Сохранение конфигурации
     private void saveConfig() {
-        WidgetConfigManager configManager =
-                WidgetConfigManager.getInstance();
-
+        WidgetConfigManager configManager = WidgetConfigManager.getInstance();
         configManager.setValue("Watermark", "showBPS", showBPS);
         configManager.setValue("Watermark", "showFPS", showFPS);
         configManager.setValue("Watermark", "showXYZ", showXYZ);
-
         configManager.save();
     }
 
@@ -106,22 +97,16 @@ public class WatermarkWidget extends Widget {
         settingsScaleAnimation.update();
         chatIndicatorAnimation.update();
 
-        // Проверяем, изменилось ли состояние чата
         if (chatOpen && !wasChatOpen) {
-            // Чат только что открылся - запускаем анимацию
             chatIndicatorAnimation.run(1.0, 300, Easing.BACK_OUT);
         } else if (!chatOpen && wasChatOpen) {
-            // Чат только что закрылся - запускаем обратную анимацию
             chatIndicatorAnimation.run(0.0, 200, Easing.CUBIC_IN);
             settingsOpen = false;
-            // Также сбрасываем анимацию настроек
             settingsScaleAnimation.reset();
         }
 
-        // Обновляем флаг
         wasChatOpen = chatOpen;
 
-        // Также можно добавить защиту на случай, если анимация не активна, но чат открыт
         if (chatOpen && !chatIndicatorAnimation.isActive()) {
             chatIndicatorAnimation.setValue(1.0);
         }
@@ -130,19 +115,24 @@ public class WatermarkWidget extends Widget {
         float y = getDraggable().getY();
         float gap = getGap();
 
-        float width = 0f;
-        float height = 0f;
-
         float headSize = scaled(29f);
         boolean isRight = x > mc.getWindow().getScaledWidth() / 2f;
 
-        float headX = !isRight ? x : x + getDraggable().getWidth() - headSize;
+        // Рассчитываем ширину виджета
+        updateWatermarkSize(matrixStack, x, y, headSize, isRight);
+        float totalWidth = getDraggable().getWidth();
+
+        // Для правой стороны голова должна быть справа
+        float headX = isRight ? x + totalWidth - headSize : x;
+
+        // Текст начинается слева для правой стороны, и справа от головы для левой
+        float pillsStartX = isRight ? x : x + headSize + gap;
 
         matrixStack.push();
         float centerX = headX + headSize / 2;
         float centerY = y + headSize / 2;
         matrixStack.translate(centerX, centerY, 0);
-        float scale = 1.0f + (float)chatIndicatorAnimation.getValue() * 0.1f;
+        float scale = 1.0f + (float) chatIndicatorAnimation.getValue() * 0.1f;
         matrixStack.scale(scale, scale, 1);
         matrixStack.translate(-centerX, -centerY, 0);
 
@@ -150,119 +140,230 @@ public class WatermarkWidget extends Widget {
                 getGap() / 2f, 0f, Color.WHITE);
         matrixStack.pop();
 
-        width += headSize + gap;
-        height += headSize;
+        // Для правой стороны рендерим справа налево
+        if (isRight) {
+            renderRightSide(matrixStack, pillsStartX, y, headSize);
+        } else {
+            renderLeftSide(matrixStack, pillsStartX, y, headSize);
+        }
 
-        float pillsStartX = !isRight ? x + headSize + gap : x;
-
-        // Рендерим название клиента и XYZ рядом с ним
-        renderClientNameWithXYZ(matrixStack, pillsStartX, y, headSize);
-
-        float pillsBottomStartY = y + headSize - watermarkHeight;
-
-        // Рендерим приветствие и рядом FPS/BPS
-        renderGreetingWithWidgets(matrixStack, pillsStartX, pillsBottomStartY);
-
-        // Обновляем размеры ватермарки
-        updateWatermarkSize(matrixStack, x, y, headSize);
-
-        // Проверяем, изменилась ли позиция ватермарки
-        if (lastWatermarkX != x || lastWatermarkY != y || lastWatermarkWidth != width) {
+        if (lastWatermarkX != x || lastWatermarkY != y || lastWatermarkWidth != totalWidth) {
             updateWidgetPositions();
             lastWatermarkX = x;
             lastWatermarkY = y;
-            lastWatermarkWidth = width;
+            lastWatermarkWidth = totalWidth;
         }
 
         if (chatOpen) {
-            handleInteraction(matrixStack, x, y, getDraggable().getWidth(), getDraggable().getHeight());
+            handleInteraction(matrixStack, x, y, totalWidth, headSize);
         }
     }
 
-    private void renderClientNameWithXYZ(MatrixStack matrixStack, float startX, float startY, float headSize) {
-        String clientName = getClientName() + getClientVersion();
+    private void renderRightSide(MatrixStack matrixStack, float startX, float startY, float headSize) {
+        float gap = getGap();
 
-        // Рендерим название клиента
+        // Первая строка (верхняя) - Название клиента и XYZ
+        String clientName = getClientName() + getClientVersion();
+        float clientWidth = drawPillRight(matrixStack, startX, startY, clientName, 0)[2];
+
+        float secondRowX = startX;
+        if (showXYZ && mc.player != null) {
+            renderXYZ(matrixStack, startX + clientWidth + gap, startY);
+        }
+
+        // Вторая строка (нижняя) - Приветствие и виджеты
+        float secondRowY = startY + headSize - watermarkHeight;
+        float widgetX = startX;
+
+        // Сначала виджеты FPS/BPS
+        if (showFPS) {
+            renderFPS(matrixStack, widgetX, secondRowY);
+            widgetX += fpsWidth + gap;
+        }
+        if (showBPS) {
+            renderBPS(matrixStack, widgetX, secondRowY);
+            widgetX += bpsWidth + gap;
+        }
+
+        // Затем приветствие
+        String greeting = getGreeting();
+        if (!greeting.isEmpty()) {
+            drawPillRight(matrixStack, widgetX, secondRowY, greeting, 0);
+        }
+    }
+
+    private void renderLeftSide(MatrixStack matrixStack, float startX, float startY, float headSize) {
+        float gap = getGap();
+
+        // Первая строка (верхняя) - Название клиента и XYZ
+        String clientName = getClientName() + getClientVersion();
         float[] namePill = drawPill(matrixStack, startX, startY, clientName, 0);
         float namePillWidth = namePill[2];
         watermarkWidth = namePillWidth;
         watermarkHeight = namePill[3];
 
-        // Рендерим XYZ справа от названия клиента, если включен
         if (showXYZ && mc.player != null) {
-            renderXYZ(matrixStack, startX + namePillWidth + getGap(), startY);
+            renderXYZ(matrixStack, startX + namePillWidth + gap, startY);
         }
-    }
 
-    private void renderGreetingWithWidgets(MatrixStack matrixStack, float startX, float startY) {
-        String greeting = getGreeting();
-
-        // Сначала рендерим приветствие
-        float[] greetingPill = drawPill(matrixStack, startX, startY, greeting, 0);
+        // Вторая строка (нижняя) - Приветствие и виджеты
+        float secondRowY = startY + headSize - watermarkHeight;
+        float[] greetingPill = drawPill(matrixStack, startX, secondRowY, getGreeting(), 0);
         float greetingWidth = greetingPill[2];
-        float greetingHeight = greetingPill[3];
 
-        // Позиция для FPS/BPS справа от приветствия
-        float widgetsX = startX + greetingWidth + getGap();
-        float widgetsY = startY;
-
-        // Рендерим FPS и BPS в строку
+        float widgetX = startX + greetingWidth + gap;
         if (showFPS) {
-            renderFPS(matrixStack, widgetsX, widgetsY);
+            renderFPS(matrixStack, widgetX, secondRowY);
             if (showBPS) {
-                // Если BPS тоже включен, рендерим его справа от FPS
-                renderBPS(matrixStack, widgetsX + fpsWidth + getGap(), widgetsY);
+                renderBPS(matrixStack, widgetX + fpsWidth + gap, secondRowY);
             }
         } else if (showBPS) {
-            // Если только BPS включен
-            renderBPS(matrixStack, widgetsX, widgetsY);
+            renderBPS(matrixStack, widgetX, secondRowY);
         }
     }
 
-    private void updateWatermarkSize(MatrixStack matrixStack, float x, float y, float headSize) {
+    private void updateWatermarkSize(MatrixStack matrixStack, float x, float y, float headSize, boolean isRight) {
         float gap = getGap();
-        float totalWidth = headSize + gap + watermarkWidth;
-        float totalHeight = headSize;
 
-        // Добавляем ширину XYZ, если он включен
+        // Считаем ширину первой строки (клиент + XYZ)
+        String clientName = getClientName() + getClientVersion();
+        float clientWidth = getSemiBoldFont().getWidth(clientName, scaled(7.5f)) + gap * 1.8f;
+
+        float firstRowWidth = clientWidth;
         if (showXYZ && mc.player != null) {
-            totalWidth += getGap() + xyzWidth;
+            firstRowWidth += gap + xyzWidth;
         }
 
-        // Рассчитываем ширину строки с приветствием и виджетами
+        // Считаем ширину второй строки (приветствие + FPS/BPS)
         String greeting = getGreeting();
-        float greetingWidth = getMediumFont().getWidth(greeting, scaled(7.5f)) + getGap() * 1.8f;
+        float greetingWidth = getMediumFont().getWidth(greeting, scaled(7.5f)) + gap * 1.8f;
 
-        // Рассчитываем ширину виджетов FPS/BPS
         float widgetsWidth = 0;
-        if (showFPS) {
-            fpsWidth = getWidgetWidth(WidgetInfo.FPS);
-            widgetsWidth += fpsWidth;
-        }
+        if (showFPS) widgetsWidth += fpsWidth;
         if (showBPS) {
-            bpsWidth = getWidgetWidth(WidgetInfo.BPS);
-            if (showFPS) widgetsWidth += getGap();
+            if (showFPS) widgetsWidth += gap;
             widgetsWidth += bpsWidth;
         }
 
-        // Общая ширина строки с приветствием и виджетами
-        float greetingRowWidth = greetingWidth;
+        float secondRowWidth = greetingWidth;
         if (widgetsWidth > 0) {
-            greetingRowWidth += getGap() + widgetsWidth;
+            secondRowWidth += gap + widgetsWidth;
         }
 
-        // Берем максимальную ширину из двух строк (клиент+XYZ и приветствие+FPS/BPS)
-        float firstRowWidth = watermarkWidth;
-        if (showXYZ && mc.player != null) {
-            firstRowWidth += getGap() + xyzWidth;
-        }
+        // Общая ширина контента = максимальная из двух строк
+        float contentWidth = Math.max(firstRowWidth, secondRowWidth);
 
-        totalWidth = Math.max(firstRowWidth, greetingRowWidth);
+        // Общая ширина виджета = голова + отступ + контент
+        float totalWidth = headSize + gap + contentWidth;
+        float totalHeight = headSize;
 
-        // Высота остается как высота головы (обе строки на одной высоте)
         getDraggable().setWidth(totalWidth);
         getDraggable().setHeight(totalHeight);
     }
+
+    private void renderClientNameWithXYZ(MatrixStack matrixStack, float startX, float startY, float headSize, boolean isRight) {
+        String clientName = getClientName() + getClientVersion();
+        float namePillWidth;
+
+        if (isRight) {
+            if (showXYZ && mc.player != null) {
+                renderXYZ(matrixStack, startX, startY);
+                namePillWidth = drawPillRight(matrixStack, startX + xyzWidth + getGap(), startY, clientName, 0)[2];
+            } else {
+                namePillWidth = drawPillRight(matrixStack, startX, startY, clientName, 0)[2];
+            }
+        } else {
+            float[] namePill = drawPill(matrixStack, startX, startY, clientName, 0);
+            namePillWidth = namePill[2];
+            watermarkWidth = namePillWidth;
+            watermarkHeight = namePill[3];
+
+            if (showXYZ && mc.player != null) {
+                renderXYZ(matrixStack, startX + namePillWidth + getGap(), startY);
+            }
+        }
+    }
+
+    private void renderGreetingWithWidgets(MatrixStack matrixStack, float startX, float startY, boolean isRight) {
+        String greeting = getGreeting();
+
+        if (isRight) {
+            float widgetsWidth = 0;
+            if (showFPS) widgetsWidth += fpsWidth;
+            if (showBPS) {
+                if (showFPS) widgetsWidth += getGap();
+                widgetsWidth += bpsWidth;
+            }
+
+            float greetingX = startX;
+            if (widgetsWidth > 0) {
+                greetingX = startX + widgetsWidth + getGap();
+            }
+
+            drawPillRight(matrixStack, greetingX, startY, greeting, 0);
+
+            float widgetX = startX;
+            if (showFPS) {
+                renderFPS(matrixStack, widgetX, startY);
+                widgetX += fpsWidth + getGap();
+            }
+            if (showBPS) {
+                renderBPS(matrixStack, widgetX, startY);
+            }
+        } else {
+            float[] greetingPill = drawPill(matrixStack, startX, startY, greeting, 0);
+            float greetingWidth = greetingPill[2];
+
+            float widgetsX = startX + greetingWidth + getGap();
+            float widgetsY = startY;
+
+            if (showFPS) {
+                renderFPS(matrixStack, widgetsX, widgetsY);
+                if (showBPS) {
+                    renderBPS(matrixStack, widgetsX + fpsWidth + getGap(), widgetsY);
+                }
+            } else if (showBPS) {
+                renderBPS(matrixStack, widgetsX, widgetsY);
+            }
+        }
+    }
+
+    private float[] drawPillRight(MatrixStack matrixStack, float x, float y, String content, float extraHeight) {
+        boolean watermark = content.contains(ClientInfo.NAME);
+        Font font = !watermark ? getMediumFont() : getSemiBoldFont();
+
+        float fontSize = scaled(7.5f);
+        float contentWidth = font.getWidth(content, fontSize);
+        float contentHeight = fontSize;
+
+        float gap = getGap() * 0.9f;
+        float backgroundWidth = contentWidth + gap * 2f;
+        float backgroundHeight = contentHeight + gap * 2f + extraHeight;
+        float round = backgroundHeight * 0.3f;
+
+        RenderUtil.BLUR_RECT.draw(matrixStack, x, y, backgroundWidth, backgroundHeight, round, UIColors.widgetBlur());
+
+        float textX = x + gap;
+        float textY = y + gap;
+
+        if (!watermark) {
+            font.drawText(matrixStack, content, textX, textY, fontSize, UIColors.textColor());
+        } else {
+            String pre = getClientName();
+            String pro = getClientVersion();
+            float preWidth = font.getWidth(pre, fontSize);
+
+            font.drawGradientText(matrixStack, pre, textX, textY, fontSize,
+                    UIColors.primary(), UIColors.secondary(), contentWidth / 4f);
+            font.drawText(matrixStack, pro, textX + preWidth, textY, fontSize, UIColors.inactiveTextColor());
+        }
+
+        watermarkWidth = backgroundWidth;
+        watermarkHeight = backgroundHeight;
+
+        return new float[]{x, y, backgroundWidth, backgroundHeight};
+    }
+
 
     private void renderBPS(MatrixStack matrixStack, float x, float y) {
         if (!showBPS || mc.player == null) return;
@@ -337,7 +438,6 @@ public class WatermarkWidget extends Widget {
         float backgroundHeight = fontSize + gap * 2f;
         float round = backgroundHeight * 0.3f;
 
-        // XYZ рендерится справа от названия клиента (на той же высоте)
         RenderUtil.BLUR_RECT.draw(matrixStack, x, y, backgroundWidth, backgroundHeight, round, UIColors.widgetBlur());
 
         float textX = x + gap;
@@ -349,42 +449,6 @@ public class WatermarkWidget extends Widget {
                 textY, fontSize, UIColors.textColor());
 
         xyzWidth = backgroundWidth;
-    }
-
-    private float getWidgetWidth(WidgetInfo widget) {
-        float fontSize = scaled(7.5f);
-        float gap = getGap();
-        String text = getWidgetText(widget);
-        return getSemiBoldFont().getWidth(text, fontSize) + gap * 2f;
-    }
-
-
-    private String getWidgetText(WidgetInfo widget) {
-        switch (widget) {
-            case BPS -> {
-                float bpsValue = getBPS();
-                return "BPS: " + String.format("%.2f", bpsValue);
-            }
-            case FPS -> {
-                return "FPS: " + mc.getCurrentFps();
-            }
-            case XYZ -> {
-                if (mc.player == null) return "XYZ: 0.0, 0.0, 0.0";
-                return String.format("XYZ: %.1f, %.1f, %.1f",
-                        mc.player.getX(), mc.player.getY(), mc.player.getZ());
-            }
-            default -> {
-                return "";
-            }
-        }
-    }
-
-    private float getBPS() {
-        if (mc.player == null) return 0;
-        double deltaX = mc.player.getX() - mc.player.prevX;
-        double deltaZ = mc.player.getZ() - mc.player.prevZ;
-        double bps = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ) * 20;
-        return (float) bps;
     }
 
     private void updateWidgetPositions() {
@@ -417,7 +481,6 @@ public class WatermarkWidget extends Widget {
         }
     }
 
-    // В методе renderSettings используйте сеттеры
     private void renderSettings(MatrixStack ms, double mx, double my) {
         settingsScaleAnimation.update();
 
@@ -565,6 +628,14 @@ public class WatermarkWidget extends Widget {
 
     private String getClientName() {
         return ClientInfo.NAME;
+    }
+
+    private float getBPS() {
+        if (mc.player == null) return 0;
+        double deltaX = mc.player.getX() - mc.player.prevX;
+        double deltaZ = mc.player.getZ() - mc.player.prevZ;
+        double bps = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ) * 20;
+        return (float) bps;
     }
 
     private enum WidgetInfo {

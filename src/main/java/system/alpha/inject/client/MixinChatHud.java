@@ -3,10 +3,8 @@ package system.alpha.inject.client;
 import net.minecraft.client.gui.hud.ChatHud;
 import net.minecraft.client.gui.hud.MessageIndicator;
 import net.minecraft.network.message.MessageSignatureData;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.text.TextColor;
+import net.minecraft.text.*;
+import net.minecraft.util.Formatting;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -52,18 +50,37 @@ public class MixinChatHud {
     @ModifyVariable(method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
             at = @At("HEAD"),
             argsOnly = true)
-    private Text addTimeToMessage(Text message) {
+    private Text modifyMessage(Text message) {
         ChatUtilsModule module = ChatUtilsModule.getInstance();
-        if (module != null && module.shouldShowTime()) {
+        if (module == null) return message;
+
+        MutableText result = Text.literal("");
+
+        if (module.shouldShowTime()) {
             module.updateFormatter();
             String timeText = module.getFormattedTime();
             Color color = module.getTimeColor();
-
             int rgb = color.getRGB();
             Text coloredTime = Text.literal(timeText).setStyle(Style.EMPTY.withColor(TextColor.fromRgb(rgb)));
-
-            return Text.literal("").append(coloredTime).append(message);
+            result.append(coloredTime);
         }
-        return message;
+
+        result.append(message);
+
+        if (module.shouldShowCopyButton()) {
+            String originalText = message.getString();
+
+            Text copyButton = Text.literal(" ")
+                    .append(Text.literal("[Скопировать]")
+                            .setStyle(Style.EMPTY
+                                    .withColor(Formatting.GRAY)
+                                    .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, originalText))
+                                    .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                                            Text.literal("Нажмите чтобы скопировать сообщение")))));
+
+            result.append(copyButton);
+        }
+
+        return result;
     }
 }

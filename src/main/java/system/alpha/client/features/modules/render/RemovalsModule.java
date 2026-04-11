@@ -15,7 +15,7 @@ public class RemovalsModule extends Module {
 
     private final String[] elements = {
             "Экран огня", "Получение урона", "Экран воды",
-            "Скорбоард", "Глоу эффект", "Плохие эффекты", "Боссбар"
+            "Скорбоард", "Глоу эффект", "Плохие эффекты", "Боссбар", "Броню"
     };
 
     private final MultiBooleanSetting remove = new MultiBooleanSetting("Убрать").value(
@@ -35,6 +35,7 @@ public class RemovalsModule extends Module {
     public boolean isGlowEffect()    { return isEnabled() && remove.isEnabled("Глоу эффект"); }
     public boolean isBadEffects()    { return isEnabled() && remove.isEnabled("Плохие эффекты"); }
     public boolean isBossBar()       { return isEnabled() && remove.isEnabled("Боссбар"); }
+    public boolean isArmor()       { return isEnabled() && remove.isEnabled("Броню"); }
 
     @Override
     public void onEvent() {

@@ -73,8 +73,23 @@ public class ParticleRender implements QuickImports {
 
     public static Identifier getTexture(String mode) {
         return switch (mode) {
-            case "Искра" -> FileUtil.getImage("particles/spark_" + MathUtil.randomInRange(1, 4));
-            default -> FileUtil.getImage("particles/" + mode.toLowerCase());
+            case "Искра" -> {
+                int random = MathUtil.randomInRange(1, 4);
+                yield FileUtil.getImage("particles/spark_" + random);
+            }
+            case "Звезда" -> FileUtil.getImage("particles/star");
+            case "Сердце" -> FileUtil.getImage("particles/heart");
+            case "Доллар" -> FileUtil.getImage("particles/dollar");
+            case "Снежинка" -> FileUtil.getImage("particles/snowflake");
+            case "Глоу" -> FileUtil.getImage("particles/glow");
+            case "Шар" -> FileUtil.getImage("particles/ball");
+            default -> {
+                String lowerMode = mode.toLowerCase();
+                if (lowerMode.startsWith("spark_")) {
+                    yield FileUtil.getImage("particles/" + lowerMode);
+                }
+                yield FileUtil.getImage("particles/" + lowerMode);
+            }
         };
     }
 

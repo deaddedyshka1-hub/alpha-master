@@ -31,6 +31,8 @@ public class ModuleManager {
                 ViewModelModule.getInstance(),
                 PointersModule.getInstance(),
                 MouseTweaksModule.getInstance(),
+                CustomModelsModule.getInstance(),
+                ShulkerViewModule.getInstance(),
                 ParticlesModule.getInstance(),
                 TapeMouseModule.getInstance(),
                 HealthResolverModule.getInstance(),

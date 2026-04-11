@@ -2,6 +2,7 @@
   "required": true,
   "minVersion": "0.8",
   "package": "system.alpha.inject",
+  "plugin": "system.alpha.inject.other.MixinAlphaPlugin",
   "compatibilityLevel": "JAVA_21",
   "priority": 1337,
   "mixinPriority": 1337,
@@ -35,6 +36,10 @@
     "other.MixinRenderTickCounter",
     "other.MixinTextVisitFactory",
     "other.MixinWindow",
+    "render.MixinItemEntity",
+    "render.MixinItemEntityRenderState",
+    "render.MixinHandledScreen",
+    "render.MixinArmorFeatureRenderer",
     "render.MixinBackgroundRenderer",
     "render.MixinItemEntityRenderer",
     "render.MixinBossBarHud",
@@ -47,7 +52,8 @@
     "render.MixinPlayerEntityRenderer",
     "render.MixinRenderSystem",
     "render.MixinWeatherRendering",
-    "accessors.IWorldRenderer"
+    "accessors.IWorldRenderer",
+    "accessors.BipedEntityModelAccessor"
   ],
   "mixins": [
   ],

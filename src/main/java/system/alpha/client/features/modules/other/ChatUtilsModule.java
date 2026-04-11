@@ -39,10 +39,12 @@ public class ChatUtilsModule extends Module {
             .step(5f)
             .setVisible(resizeChat::getValue);
 
+    public final BooleanSetting copyButton = new BooleanSetting("Кнопка копирования").value(false);
+
     private DateTimeFormatter formatter;
 
     public ChatUtilsModule() {
-        addSettings(showTime, timeFormat, showSeconds, timeBrackets, timeColor, resizeChat, chatWidth, chatHeight);
+        addSettings(showTime, timeFormat, showSeconds, timeBrackets, timeColor, resizeChat, chatWidth, chatHeight, copyButton);
         updateFormatter();
     }
 
@@ -82,6 +84,10 @@ public class ChatUtilsModule extends Module {
 
     public boolean shouldShowTime() {
         return isEnabled() && showTime.getValue();
+    }
+
+    public boolean shouldShowCopyButton() {
+        return isEnabled() && copyButton.getValue();
     }
 
     public void applyChatSize() {
