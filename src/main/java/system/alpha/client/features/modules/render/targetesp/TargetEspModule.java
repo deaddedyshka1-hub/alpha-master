@@ -38,7 +38,6 @@ public class TargetEspModule extends Module {
     private final SliderSetting inSize = new SliderSetting("По размеру").value(0f).range(0f, 1f).step(0.1f).setVisible(() -> animation.is("In"));
     private final SliderSetting outSize = new SliderSetting("Выходящий размер").value(2f).range(1f, 2f).step(0.1f).setVisible(() -> animation.is("Out"));
     public final BooleanSetting lastPosition = new BooleanSetting("Ласт позиция").value(true);
-    public final BooleanSetting ignoreInvisible = new BooleanSetting("Игнорировать невидимых").value(true);
     public final SliderSetting crystalSpeed = new SliderSetting("Скорость").value(6f).range(1f, 20f).step(0.5f).setVisible(() -> mode.is("Кристаллы"));
     public final BooleanSetting crystalBloom = new BooleanSetting("Блум").value(true).setVisible(() -> mode.is("Кристаллы"));
     public final SliderSetting crystalBloomSize = new SliderSetting("Размер блума").value(1f).range(0.3f, 2f).step(0.1f).setVisible(() -> mode.is("Кристаллы") && crystalBloom.getValue());
@@ -50,14 +49,12 @@ public class TargetEspModule extends Module {
     public TargetEspModule() {
         addSettings(
                 mode, animation, duration,
-                size, inSize, outSize, lastPosition, ignoreInvisible,
+                size, inSize, outSize, lastPosition,
                 crystalSpeed, crystalBloom, crystalBloomSize,
-                crystalRedOnImpact, crystalImpactFadeIn, crystalImpactFadeOut, crystalImpactIntensity);
+                crystalRedOnImpact, crystalImpactFadeIn,
+                crystalImpactFadeOut, crystalImpactIntensity);
     }
 
-    public boolean shouldIgnoreInvisible() {
-        return ignoreInvisible.getValue();
-    }
 
     @Override
     public void onEvent() {

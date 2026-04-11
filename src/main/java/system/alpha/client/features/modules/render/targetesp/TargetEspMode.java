@@ -7,7 +7,6 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.RaycastContext;
 import system.alpha.api.event.events.render.Render3DEvent;
@@ -15,8 +14,6 @@ import system.alpha.api.system.interfaces.QuickImports;
 import system.alpha.api.utils.animation.AnimationUtil;
 import system.alpha.api.utils.animation.Easing;
 import system.alpha.api.utils.math.MathUtil;
-
-import java.util.List;
 
 public abstract class TargetEspMode implements QuickImports {
     public static final AnimationUtil showAnimation = new AnimationUtil();
@@ -53,10 +50,9 @@ public abstract class TargetEspMode implements QuickImports {
         if (entity == null || !entity.isAlive() || mc.player == null) return false;
         if (entity == mc.player) return false;
 
-        if (TargetEspModule.getInstance().shouldIgnoreInvisible()) {
-            if (entity.isInvisible()) return false;
-            if (entity.hasStatusEffect(StatusEffects.INVISIBILITY)) return false;
-        }
+        // Всегда игнорируем невидимых
+        if (entity.isInvisible()) return false;
+        if (entity.hasStatusEffect(StatusEffects.INVISIBILITY)) return false;
 
         double distance = mc.player.distanceTo(entity);
         if (distance > maxRange) return false;
@@ -102,10 +98,9 @@ public abstract class TargetEspMode implements QuickImports {
         if (currentTarget == null) return false;
         if (mc.player == null || mc.world == null) return false;
 
-        if (TargetEspModule.getInstance().shouldIgnoreInvisible()) {
-            if (currentTarget.isInvisible()) return false;
-            if (currentTarget.hasStatusEffect(StatusEffects.INVISIBILITY)) return false;
-        }
+        // Всегда игнорируем невидимых
+        if (currentTarget.isInvisible()) return false;
+        if (currentTarget.hasStatusEffect(StatusEffects.INVISIBILITY)) return false;
 
         HitResult hitResult = mc.crosshairTarget;
 
@@ -126,10 +121,9 @@ public abstract class TargetEspMode implements QuickImports {
         if (mc.player == null || mc.world == null) return false;
         if (currentTarget == null) return false;
 
-        if (TargetEspModule.getInstance().shouldIgnoreInvisible()) {
-            if (currentTarget.isInvisible()) return false;
-            if (currentTarget.hasStatusEffect(StatusEffects.INVISIBILITY)) return false;
-        }
+        // Всегда игнорируем невидимых
+        if (currentTarget.isInvisible()) return false;
+        if (currentTarget.hasStatusEffect(StatusEffects.INVISIBILITY)) return false;
 
         HitResult hitResult = mc.crosshairTarget;
 

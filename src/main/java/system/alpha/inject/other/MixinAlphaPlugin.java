@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
 public final class MixinAlphaPlugin
         implements IMixinConfigPlugin {
-    private static final String MIXIN_PACKAGE = "vurst.visual.utility.mixin.";
+    private static final String MIXIN_PACKAGE = "system.alpha.inject.";
     private static final Set<String> LUNAR_DISABLED = Set.of("client.render.LivingEntityRendererMixin", "client.MouseMixin");
     private static final Set<String> LABY_DISABLED = Set.of("client.MouseMixin");
     private static boolean lunarClient;
