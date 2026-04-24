@@ -23,16 +23,9 @@ public class HitboxQueue implements QuickImports {
         boxTasks.add(new BoxTask(box, fillColor, outlineColor, lineWidth));
     }
 
-    public static void addHitboxFill(Box box, Color color, float lineWidth) {
-        boxTasks.add(new BoxTask(box, color, null, lineWidth));
-    }
 
     public static void addHitboxOutline(Box box, Color color, float lineWidth) {
         boxTasks.add(new BoxTask(box, null, color, lineWidth));
-    }
-
-    public static void addHitboxLine(Vec3d start, Vec3d end, Color color, float lineWidth) {
-        lineTasks.add(new LineTask(start, end, color, lineWidth));
     }
 
     public static void renderQueuedHitboxes(MatrixStack matrices) {
@@ -105,52 +98,37 @@ public class HitboxQueue implements QuickImports {
 
         for (BoxTask task : boxTasks) {
             if (task.outlineColor != null && task.outlineColor.getAlpha() > 0) {
-                addOutlineVertices(buffer, matrix, camera, task.box, task.outlineColor);
+                GL11.glLineWidth(task.lineWidth);
+                GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
+                GL11.glEnable(GL11.GL_LINE_SMOOTH);
+
+                BufferBuilder tempBuffer = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
+                addOutlineVertices(tempBuffer, matrix, camera, task.box, task.outlineColor);
+
+                RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+                BufferRenderer.drawWithGlobalProgram(tempBuffer.end());
             }
         }
-
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-
-        float lineWidth = getMaxOutlineWidth();
-        GL11.glLineWidth(lineWidth);
-        GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
-        GL11.glEnable(GL11.GL_LINE_SMOOTH);
-
-        BufferRenderer.drawWithGlobalProgram(buffer.end());
 
         GL11.glDisable(GL11.GL_LINE_SMOOTH);
-    }
-
-    private static float getMaxOutlineWidth() {
-        float maxWidth = 1.5f;
-        for (BoxTask task : boxTasks) {
-            if (task.outlineColor != null && task.outlineColor.getAlpha() > 0) {
-                if (task.lineWidth > maxWidth) {
-                    maxWidth = task.lineWidth;
-                }
-            }
-        }
-        return maxWidth;
     }
 
     private static void renderAllLines(Matrix4f matrix, Vec3d camera) {
         if (lineTasks.isEmpty()) return;
 
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
-
         for (LineTask task : lineTasks) {
+            Tessellator tessellator = Tessellator.getInstance();
+            BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
+
+            GL11.glLineWidth(task.lineWidth);
+            GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
+            GL11.glEnable(GL11.GL_LINE_SMOOTH);
+
             addLineVertices(buffer, matrix, camera, task.start, task.end, task.color);
+
+            RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+            BufferRenderer.drawWithGlobalProgram(buffer.end());
         }
-
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-
-        float maxLineWidth = getMaxLineWidth();
-        GL11.glLineWidth(maxLineWidth);
-        GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
-        GL11.glEnable(GL11.GL_LINE_SMOOTH);
-
-        BufferRenderer.drawWithGlobalProgram(buffer.end());
 
         GL11.glDisable(GL11.GL_LINE_SMOOTH);
     }
