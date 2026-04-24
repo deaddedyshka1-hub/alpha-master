@@ -151,6 +151,7 @@ public abstract class MixinLivingEntityRenderer<T extends LivingEntity, S extend
         }
     }
 
+
     @Inject(method = "render", at = @At("TAIL"))
     private void cleanupAfterRender(LivingEntityRenderState state, MatrixStack matrices,
                                     VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {

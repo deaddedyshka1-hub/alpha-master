@@ -8,6 +8,7 @@ import java.io.File;
 @UtilityClass
 public class ClientInfo {
     public final String NAME = "AlphaVisuals";
+    public final String UPDATE = "24.04.2026";
     public final String VERSION = FabricLoader.getInstance().getModContainer(NAME.toLowerCase()).get().getMetadata().getVersion().getFriendlyString();
 
     public final String CONFIG_PATH_OTHER = new File(System.getProperty("user.dir"), NAME + "/other").getAbsolutePath();

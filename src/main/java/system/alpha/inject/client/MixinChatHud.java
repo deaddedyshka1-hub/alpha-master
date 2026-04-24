@@ -26,24 +26,29 @@ public class MixinChatHud {
                 .findFirst()
                 .orElse(null);
 
-        if (widget == null || !widget.isSpecRequest()) return;
+        if (widget == null) return;
 
         String full = message.getString();
-        String msg = full.toLowerCase();
 
-        if (msg.contains("spec") || msg.contains("спек") || msg.contains("спэк")) {
-            String sender = "Игрок";
-            if (full.contains(":")) {
-                sender = full.substring(0, full.indexOf(":")).trim();
-            } else if (full.contains(">")) {
-                int idx = full.indexOf(">");
-                if (idx > 0) {
-                    String temp = full.substring(0, idx).trim();
-                    if (temp.startsWith("<")) temp = temp.substring(1);
-                    sender = temp;
+        widget.onChatMessage(full);
+
+        if (widget.isSpecRequest()) {
+            String msg = full.toLowerCase();
+
+            if (msg.contains("spec") || msg.contains("спек") || msg.contains("спэк")) {
+                String sender = "Игрок";
+                if (full.contains(":")) {
+                    sender = full.substring(0, full.indexOf(":")).trim();
+                } else if (full.contains(">")) {
+                    int idx = full.indexOf(">");
+                    if (idx > 0) {
+                        String temp = full.substring(0, idx).trim();
+                        if (temp.startsWith("<")) temp = temp.substring(1);
+                        sender = temp;
+                    }
                 }
+                widget.addNotif(sender + " просит о спеке!");
             }
-            widget.addNotif(sender + " просит о спеке!");
         }
     }
 

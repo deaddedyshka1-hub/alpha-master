@@ -12,6 +12,7 @@ import system.alpha.api.utils.animation.AnimationUtil;
 import system.alpha.api.utils.animation.Easing;
 import system.alpha.api.utils.color.UIColors;
 import system.alpha.api.utils.render.RenderUtil;
+import system.alpha.client.services.CheckService;
 import system.alpha.client.ui.widget.Widget;
 import org.lwjgl.glfw.GLFW;
 
@@ -25,10 +26,10 @@ public class NotificationWidget extends Widget {
     private float fixedX, fixedY;
     private float hintAlpha;
 
-    // Используйте геттеры/сеттеры
     private boolean specRequest = false;
     private boolean moduleState = false;
     private boolean lowDurability = false;
+    private boolean showCheckTimer = true;
 
     private float settingsAnim;
     private boolean settingsOpen;
@@ -43,17 +44,23 @@ public class NotificationWidget extends Widget {
     private final AnimationUtil chatOpenAnimation = new AnimationUtil();
     private final AnimationUtil scaleAnimation = new AnimationUtil();
     private final AnimationUtil slideAnimation = new AnimationUtil();
-    private final AnimationUtil settingsScaleAnimation = new AnimationUtil(); // Добавьте это
+    private final AnimationUtil settingsScaleAnimation = new AnimationUtil();
+    private final AnimationUtil timerAnimation = new AnimationUtil();
 
     private boolean hasPlayedOpenAnimation = false;
     private boolean hasPlayedCloseAnimation = true;
+
+    private final CheckService checkService = CheckService.getInstance();
+    private String lastCheckedPlayer = null;
+    private float timerPulse = 0;
+    private boolean timerPulseDirection = true;
 
     public NotificationWidget() {
         super(0, 0);
         updateFixedPosition();
     }
 
-    // Геттеры и сеттеры
+
     public boolean isSpecRequest() {
         return specRequest;
     }
@@ -72,33 +79,32 @@ public class NotificationWidget extends Widget {
         saveConfig();
     }
 
-    public boolean isLowDurability() {
-        return lowDurability;
-    }
-
     public void setLowDurability(boolean lowDurability) {
         this.lowDurability = lowDurability;
         saveConfig();
     }
 
-    // Загрузка конфигурации
+    public void setShowCheckTimer(boolean showCheckTimer) {
+        this.showCheckTimer = showCheckTimer;
+        saveConfig();
+    }
+
     public void loadConfig() {
-        WidgetConfigManager configManager =
-                WidgetConfigManager.getInstance();
+        WidgetConfigManager configManager = WidgetConfigManager.getInstance();
 
         specRequest = configManager.getBoolean("Notification", "specRequest", false);
         moduleState = configManager.getBoolean("Notification", "moduleState", false);
         lowDurability = configManager.getBoolean("Notification", "lowDurability", false);
+        showCheckTimer = configManager.getBoolean("Notification", "showCheckTimer", true);
     }
 
-    // Сохранение конфигурации
     private void saveConfig() {
-       WidgetConfigManager configManager =
-               WidgetConfigManager.getInstance();
+        WidgetConfigManager configManager = WidgetConfigManager.getInstance();
 
         configManager.setValue("Notification", "specRequest", specRequest);
         configManager.setValue("Notification", "moduleState", moduleState);
         configManager.setValue("Notification", "lowDurability", lowDurability);
+        configManager.setValue("Notification", "showCheckTimer", showCheckTimer);
 
         configManager.save();
     }
@@ -112,12 +118,207 @@ public class NotificationWidget extends Widget {
         notifs.add(new Notif(text));
     }
 
+    public void onSendMessage(String message) {
+        if (message.startsWith("/check ") && !message.startsWith("/check addtime") &&
+                !message.startsWith("/check settime") && !message.startsWith("/check setdefaulttime") &&
+                !message.startsWith("/check settimeadditions") && !message.startsWith("/check list")) {
+
+            String[] parts = message.split(" ");
+            if (parts.length >= 2) {
+                String playerName = parts[1];
+
+                if (parts.length == 2) {
+                    if (checkService.isBeingChecked(playerName)) {
+                        forceStopCheck(playerName);
+                    } else {
+                        checkService.startCheck(playerName);
+                        addNotif("Начата проверка игрока " + playerName);
+                        lastCheckedPlayer = playerName;
+                        timerAnimation.reset();
+                        timerAnimation.setValue(0.0);
+                        timerAnimation.run(1.0, 400, Easing.BACK_OUT);
+                    }
+                } else if (parts.length >= 3 && parts[2].equalsIgnoreCase("start")) {
+                    if (!checkService.isBeingChecked(playerName)) {
+                        checkService.startCheck(playerName);
+                        addNotif("Начата проверка игрока " + playerName);
+                        lastCheckedPlayer = playerName;
+                        timerAnimation.reset();
+                        timerAnimation.setValue(0.0);
+                        timerAnimation.run(1.0, 400, Easing.BACK_OUT);
+                    }
+                } else if (parts.length >= 3 && parts[2].equalsIgnoreCase("stop")) {
+                    if (checkService.isBeingChecked(playerName)) {
+                        forceStopCheck(playerName);
+                    }
+                }
+            }
+        }
+    }
+
+    public void onChatMessage(String message) {
+        System.out.println("[DEBUG] Chat message: " + message);
+
+        if (message.contains("Проверки » Игрок") && message.contains("вызван на проверку")) {
+            String playerName = extractPlayerNameFromMessage(message);
+            System.out.println("[DEBUG] Player called for check: " + playerName);
+            if (playerName != null && !checkService.isBeingChecked(playerName)) {
+                checkService.startCheck(playerName);
+                addNotif("Начата проверка игрока " + playerName);
+                lastCheckedPlayer = playerName;
+                timerAnimation.reset();
+                timerAnimation.setValue(0.0);
+                timerAnimation.run(1.0, 400, Easing.BACK_OUT);
+            }
+        }
+
+        if (message.contains("Вы отпустили игрока") && message.contains("с проверки")) {
+            System.out.println("[DEBUG] Player released message received");
+            if (lastCheckedPlayer != null) {
+                System.out.println("[DEBUG] Stopping check for: " + lastCheckedPlayer);
+                forceStopCheck(lastCheckedPlayer);
+            } else if (hasActiveCheck()) {
+                CheckService.CheckSession activeCheck = getActiveCheck();
+                if (activeCheck != null) {
+                    System.out.println("[DEBUG] Stopping check for active player: " + activeCheck.getPlayerName());
+                    forceStopCheck(activeCheck.getPlayerName());
+                }
+            }
+        }
+
+        if ((message.contains("Проверка") && message.contains("закончена")) ||
+                (message.contains("Проверка") && message.contains("остановлена"))) {
+            String playerName = extractPlayerNameFromMessage(message);
+            System.out.println("[DEBUG] Check finished: " + playerName);
+            if (playerName != null && checkService.isBeingChecked(playerName)) {
+                forceStopCheck(playerName);
+            } else if (lastCheckedPlayer != null) {
+                forceStopCheck(lastCheckedPlayer);
+            }
+        }
+    }
+
+    public void onPlayerLeave(String playerName) {
+        System.out.println("[DEBUG] Player left: " + playerName);
+        if (checkService.isBeingChecked(playerName)) {
+            CheckService.CheckSession session = checkService.getCheck(playerName);
+            if (session != null && !session.isExpired()) {
+                addNotif("Игрок " + playerName + " вышел с сервера во время проверки");
+                checkService.stopCheck(playerName);
+                lastCheckedPlayer = null;
+                timerAnimation.reset();
+                timerAnimation.setValue(0.0);
+                timerAnimation.run(0.0, 300, Easing.BACK_IN);
+            }
+        }
+    }
+
+    private String extractPlayerNameFromMessage(String message) {
+        try {
+            int startIndex = message.indexOf("Игрок ") + 6;
+            int endIndex = message.indexOf(" вызван", startIndex);
+            if (startIndex > 6 && endIndex > startIndex) {
+                return message.substring(startIndex, endIndex);
+            }
+
+            startIndex = message.indexOf("игрока ") + 7;
+            if (startIndex > 7) {
+                endIndex = message.indexOf(" ", startIndex);
+                if (endIndex > startIndex) {
+                    return message.substring(startIndex, endIndex);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public void stopCheck(String playerName) {
+        if (checkService.isBeingChecked(playerName)) {
+            checkService.stopCheck(playerName);
+            addNotif("Проверка игрока " + playerName + " завершена");
+            lastCheckedPlayer = null;
+            timerAnimation.reset();
+            timerAnimation.run(0.0, 300, Easing.BACK_IN);
+        }
+    }
+
+    public void forceStopCheck(String playerName) {
+        if (checkService.isBeingChecked(playerName)) {
+            checkService.stopCheck(playerName);
+            addNotif("Проверка игрока " + playerName + " завершена");
+            lastCheckedPlayer = null;
+            timerAnimation.reset();
+            timerAnimation.setValue(0.0);
+            timerAnimation.run(0.0, 300, Easing.BACK_IN);
+        }
+    }
+
+    public void updateChecks() {
+        checkService.update();
+
+        if (lastCheckedPlayer != null && !checkService.isBeingChecked(lastCheckedPlayer)) {
+            System.out.println("[DEBUG] Player no longer being checked: " + lastCheckedPlayer);
+            if (checkService.getCheck(lastCheckedPlayer) != null &&
+                    checkService.getCheck(lastCheckedPlayer).isExpired()) {
+                addNotif("Время проверки игрока " + lastCheckedPlayer + " истекло!");
+            }
+            lastCheckedPlayer = null;
+        }
+
+        if (lastCheckedPlayer == null) {
+            for (CheckService.CheckSession session : checkService.getActiveChecks()) {
+                if (!session.isExpired()) {
+                    lastCheckedPlayer = session.getPlayerName();
+                    System.out.println("[DEBUG] New active check: " + lastCheckedPlayer);
+                    timerAnimation.reset();
+                    timerAnimation.setValue(0.0);
+                    timerAnimation.run(1.0, 400, Easing.BACK_OUT);
+                    break;
+                }
+            }
+        }
+
+        if (hasActiveCheck() && getActiveCheck() != null) {
+            long remaining = getActiveCheck().getRemainingTime();
+            if (remaining < 30000 && remaining > 0) {
+                if (timerPulseDirection) {
+                    timerPulse += 0.05f;
+                    if (timerPulse >= 1.0f) {
+                        timerPulseDirection = false;
+                    }
+                } else {
+                    timerPulse -= 0.05f;
+                    if (timerPulse <= 0.3f) {
+                        timerPulseDirection = true;
+                    }
+                }
+            } else {
+                timerPulse = 0;
+            }
+        }
+    }
+
+    private boolean hasActiveCheck() {
+        return checkService.getActiveChecks().stream().anyMatch(s -> !s.isExpired());
+    }
+
+    private CheckService.CheckSession getActiveCheck() {
+        return checkService.getActiveChecks().stream().filter(s -> !s.isExpired()).findFirst().orElse(null);
+    }
+
     @Override
     public void render(Render2DEvent.Render2DEventData event) {
         MatrixStack ms = event.matrixStack();
 
+        updateChecks();
+        timerAnimation.update();
+
         notifs.removeIf(Notif::shouldRemove);
         renderNotifs(ms);
+
+        renderCheckTimer(ms);
 
         if (lowDurability && System.currentTimeMillis() - lastDuraCheck > 5000) {
             checkDura();
@@ -129,9 +330,8 @@ public class NotificationWidget extends Widget {
         chatOpenAnimation.update();
         scaleAnimation.update();
         slideAnimation.update();
-        settingsScaleAnimation.update(); // Добавьте это
+        settingsScaleAnimation.update();
 
-        // Всегда обновляем позицию при рендере, если окно изменилось
         updateFixedPosition();
 
         if (chatOpen && !wasChatOpen) {
@@ -151,11 +351,9 @@ public class NotificationWidget extends Widget {
             resetSettingsAnimation();
         }
 
-        // Обновляем wasChatOpen сразу после проверки изменения состояния
         boolean chatStateChanged = (chatOpen != wasChatOpen);
         wasChatOpen = chatOpen;
 
-        // Если чат открыт, но анимации не активны и анимация открытия еще не проиграна
         if (chatOpen && !chatOpenAnimation.isActive() && !hasPlayedOpenAnimation) {
             chatOpenAnimation.setValue(1.0);
             scaleAnimation.setValue(1.0);
@@ -163,7 +361,6 @@ public class NotificationWidget extends Widget {
             hasPlayedOpenAnimation = true;
         }
 
-        // Если чат закрыт, но анимации не активны и анимация закрытия еще не проиграна
         if (!chatOpen && !chatOpenAnimation.isActive() && !hasPlayedCloseAnimation) {
             chatOpenAnimation.setValue(0.0);
             scaleAnimation.setValue(0.0);
@@ -171,7 +368,6 @@ public class NotificationWidget extends Widget {
             hasPlayedCloseAnimation = true;
         }
 
-        // Если состояние чата изменилось, обновляем позицию
         if (chatStateChanged && chatOpen) {
             updateFixedPosition();
         }
@@ -267,12 +463,103 @@ public class NotificationWidget extends Widget {
         renderSettings(ms, mx, my);
     }
 
-    // Новый метод для обновления позиции
-    private void updateFixedPosition() {
-        if (mc.getWindow() != null) {
-            fixedX = mc.getWindow().getScaledWidth() / 2f;
-            fixedY = mc.getWindow().getScaledHeight() / 2f;
+    private void renderCheckTimer(MatrixStack ms) {
+        if (!showCheckTimer) return;
+
+        CheckService.CheckSession activeCheck = getActiveCheck();
+        if (activeCheck == null) return;
+
+        float timerAnimValue = (float) timerAnimation.getValue();
+
+        boolean isExpired = activeCheck.isExpired();
+        boolean hasPlayerLeft = false;
+
+        if (lastCheckedPlayer != null && !checkService.isBeingChecked(lastCheckedPlayer) && isExpired == false) {
+            hasPlayerLeft = true;
         }
+
+        if (!isExpired && !hasPlayerLeft && timerAnimValue <= 0.01f) return;
+
+        float font = scaled(7);
+        float pad = scaled(6);
+        float icon = scaled(10);
+        float gap = scaled(4);
+        float r = scaled(3);
+
+        String playerText = "Проверка: " + activeCheck.getPlayerName();
+        String timeText;
+        String statusText = null;
+        Color statusColor;
+
+        if (isExpired) {
+            timeText = "Время истекло!";
+            statusColor = new Color(255, 100, 100, 255);
+        } else if (hasPlayerLeft) {
+            timeText = "Игрок покинул сервер!";
+            statusColor = new Color(255, 100, 100, 255);
+        } else {
+            timeText = "Осталось времени: " + activeCheck.getFormattedTime();
+            statusColor = new Color(255, 255, 255, 255);
+        }
+
+        float timeW = getMediumFont().getWidth(timeText, font);
+        float playerW = getMediumFont().getWidth(playerText, font);
+        float maxW = Math.max(timeW, playerW);
+
+        if (statusText != null) {
+            float statusW = getMediumFont().getWidth(statusText, font);
+            maxW = Math.max(maxW, statusW);
+        }
+
+        float w = pad + icon + gap + maxW + pad;
+        float h = icon + pad * 2;
+
+        float x = fixedX - w / 2;
+        float y = fixedY - scaled(50);
+
+        ms.push();
+        float centerX = x + w / 2;
+        float centerY = y + h / 2;
+        ms.translate(centerX, centerY, 0);
+
+        float scale = Easing.BACK_OUT.apply(timerAnimValue);
+        ms.scale(scale, scale, 1);
+        ms.translate(-centerX, -centerY, 0);
+
+        int alpha = (int) (255 * Math.min(1.0f, Math.max(0.0f, timerAnimValue)));
+        alpha = Math.max(0, Math.min(255, alpha));
+
+        RenderUtil.BLUR_RECT.draw(ms, x, y, w, h, r, UIColors.widgetBlur());
+
+        float ix = x + pad;
+        float iy = y + h / 2 - icon / 2;
+
+        try {
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            int tex = mc.getTextureManager().getTexture(star).getGlId();
+            RenderUtil.TEXTURE_RECT.draw(ms, ix, iy, icon, icon, scaled(1.5f),
+                    new Color(255, 200, 100, alpha), 0, 0, 1, 1, tex);
+        } catch (Exception e) {
+            RenderUtil.RECT.draw(ms, ix, iy, icon, icon, scaled(1.5f), new Color(255, 200, 100, alpha));
+        }
+
+        Color timeColor;
+        if (isExpired || hasPlayerLeft) {
+            timeColor = new Color(255, 100, 100, alpha);
+        } else if (activeCheck.getRemainingTime() < 30000) {
+            int pulseAlpha = (int) ((150 + 105 * timerPulse) * timerAnimValue);
+            pulseAlpha = Math.max(0, Math.min(255, pulseAlpha));
+            timeColor = new Color(255, 100, 100, pulseAlpha);
+        } else {
+            timeColor = new Color(255, 255, 255, alpha);
+        }
+
+        getMediumFont().drawText(ms, playerText, ix + icon + gap, y + h / 2 - font - gap / 2, font,
+                new Color(255, 200, 100, alpha));
+        getMediumFont().drawText(ms, timeText, ix + icon + gap, y + h / 2 + gap / 2, font, timeColor);
+
+        ms.pop();
     }
 
     private void renderSettings(MatrixStack ms, double mx, double my) {
@@ -288,7 +575,7 @@ public class NotificationWidget extends Widget {
         float font = scaled(6);
         float toggle = scaled(7);
 
-        String[] opts = {"Просьба о наблюдении", "Состояние модулей", "Низкая прочность предметов"};
+        String[] opts = {"Просьба о наблюдении", "Состояние модулей", "Низкая прочность предметов", "Отсчёт времени"};
 
         float maxW = 0;
         for (String opt : opts) {
@@ -309,7 +596,6 @@ public class NotificationWidget extends Widget {
         float centX = x + w / 2;
         float centY = y + h / 2;
 
-        // Используйте значение из анимации
         float scaleAnim = (float) settingsScaleAnimation.getValue();
 
         ms.translate(centX, centY, 0);
@@ -326,7 +612,7 @@ public class NotificationWidget extends Widget {
                         alpha));
 
         float cy = y + pad;
-        boolean[] states = {specRequest, moduleState, lowDurability};
+        boolean[] states = {specRequest, moduleState, lowDurability, showCheckTimer};
 
         boolean leftClick = GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
 
@@ -347,6 +633,7 @@ public class NotificationWidget extends Widget {
                     case 0 -> setSpecRequest(!specRequest);
                     case 1 -> setModuleState(!moduleState);
                     case 2 -> setLowDurability(!lowDurability);
+                    case 3 -> setShowCheckTimer(!showCheckTimer);
                 }
                 states[i] = !states[i];
             }
@@ -372,7 +659,7 @@ public class NotificationWidget extends Widget {
             float v = n.getAlpha();
             if (v <= 0.05f) continue;
 
-            String txt = n.text.replace("§a", "").replace("§c", "").replace("§", "");
+            String txt = n.text;
             float font = scaled(7);
             float pad = scaled(5);
             float icon = scaled(10);
@@ -400,7 +687,7 @@ public class NotificationWidget extends Widget {
             float ix = x + pad;
             float iy = y + h / 2 - icon / 2;
 
-            boolean isEnabled = n.text.contains("§a") || n.text.contains("включен");
+            boolean isEnabled = n.text.contains("Начата") || n.text.contains("включен");
             Color iconColor = isEnabled ? new Color(100, 255, 100) : new Color(255, 100, 100);
 
             try {
@@ -420,8 +707,17 @@ public class NotificationWidget extends Widget {
 
             int textAlpha = (int) (255 * v);
             textAlpha = Math.max(0, Math.min(255, textAlpha));
-            getMediumFont().drawText(ms, txt, ix + icon + gap, y + h / 2 - font / 2, font,
-                    new Color(255, 255, 255, textAlpha));
+
+            Color textColor;
+            if (n.text.contains("Начата")) {
+                textColor = new Color(100, 255, 100, textAlpha);
+            } else if (n.text.contains("завершена") || n.text.contains("истекло") || n.text.contains("вышел")) {
+                textColor = new Color(255, 100, 100, textAlpha);
+            } else {
+                textColor = new Color(255, 255, 255, textAlpha);
+            }
+
+            getMediumFont().drawText(ms, txt, ix + icon + gap, y + h / 2 - font / 2, font, textColor);
 
             ms.pop();
             yOff += (h + scaled(3)) * v;
@@ -444,6 +740,13 @@ public class NotificationWidget extends Widget {
 
     @Override
     public void render(MatrixStack matrixStack) {}
+
+    private void updateFixedPosition() {
+        if (mc.getWindow() != null) {
+            fixedX = mc.getWindow().getScaledWidth() / 2f;
+            fixedY = mc.getWindow().getScaledHeight() / 2f;
+        }
+    }
 
     private void resetAnimations() {
         chatOpenAnimation.reset();

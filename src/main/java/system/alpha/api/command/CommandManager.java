@@ -30,7 +30,7 @@ public class CommandManager {
     public void load() {
         register(
                 new CommandConfig(), new CommandFriend(),
-                new CommandMacro(), new CommandGps(),
+                new CommandMacro(), new CommandGps(), new CommandCheck(),
                 new CommandSkin()
         );
     }

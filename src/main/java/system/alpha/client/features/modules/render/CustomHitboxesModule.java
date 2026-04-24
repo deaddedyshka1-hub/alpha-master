@@ -31,7 +31,7 @@ public class CustomHitboxesModule extends Module {
     private final BooleanSetting fill = new BooleanSetting("Заливка").value(true);
     private final SliderSetting lineWidth = new SliderSetting("Толщина линии")
             .value(1.5f)
-            .range(0.5f, 6.0f)
+            .range(0.5f, 15.0f)
             .step(0.1f);
 
     private final SliderSetting fillAlpha = new SliderSetting("Прозрачность заливки")

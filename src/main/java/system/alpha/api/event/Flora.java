@@ -1,5 +1,7 @@
 package system.alpha.api.event;
 
+import lombok.Getter;
+import system.alpha.api.event.events.player.other.UpdateEvent;
 import system.alpha.api.event.interfaces.Cacheable;
 import system.alpha.api.event.interfaces.Notifiable;
 import system.alpha.api.event.interfaces.Subscribable;

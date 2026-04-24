@@ -81,7 +81,7 @@ public abstract class Module extends Configurable implements QuickImports {
                     .orElse(null);
 
             if (widget != null && widget.isModuleState()) {
-                widget.addNotif(name + (newState ? " §aвключен" : " §cвыключен"));
+                widget.addNotif(name + (newState ? " включен" : " выключен"));
             }
         }
     }
