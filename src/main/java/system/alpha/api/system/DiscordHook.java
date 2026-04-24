@@ -15,9 +15,9 @@ public class DiscordHook implements QuickImports {
 
         RPCHandler.setOnReady(user -> {
             RichPresence presence = RichPresence.builder()
-                    .details("Версия: " + ClientInfo.VERSION + " " + "Посл. обновлние" + ClientInfo.UPDATE)
+                    .details("Версия: " + ClientInfo.VERSION + " " + " " + "Посл. обновлние: " + ClientInfo.UPDATE)
                     .largeImageKey("https://media1.tenor.com/m/lhAa2WiLwfkAAAAC/alpha.gif")
-                    .largeImageText("Играет на нике" + user.getUsername())
+                    .largeImageText("Играет на нике: " + user.getUsername())
                     .button(RichPresenceBuilder.RPCButton.of("Скачать", "https://github.com/deaddedyshka1-hub/alpha-master/releases/tag/2.01"))
                     .button(RichPresenceBuilder.RPCButton.of("Подписаться", "https://t.me/alphavisual"))
                     .build();
