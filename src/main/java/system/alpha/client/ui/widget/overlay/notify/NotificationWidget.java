@@ -7,11 +7,14 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.Identifier;
 import system.alpha.api.event.events.render.Render2DEvent;
 import system.alpha.api.system.configs.WidgetConfigManager;
+import system.alpha.api.system.draggable.Draggable;
+import system.alpha.api.system.draggable.DraggableManager;
 import system.alpha.api.system.files.FileUtil;
 import system.alpha.api.utils.animation.AnimationUtil;
 import system.alpha.api.utils.animation.Easing;
 import system.alpha.api.utils.color.UIColors;
 import system.alpha.api.utils.render.RenderUtil;
+import system.alpha.client.features.modules.render.InterfaceModule;
 import system.alpha.client.services.CheckService;
 import system.alpha.client.ui.widget.Widget;
 import org.lwjgl.glfw.GLFW;
@@ -55,9 +58,45 @@ public class NotificationWidget extends Widget {
     private float timerPulse = 0;
     private boolean timerPulseDirection = true;
 
+    private Draggable timerDraggable;
+    private float timerX = 0.5f;
+    private float timerY = 0.15f;
+
     public NotificationWidget() {
         super(0, 0);
         updateFixedPosition();
+        loadTimerPosition();
+    }
+
+    private void createTimerDraggable() {
+        float screenWidth = mc.getWindow().getScaledWidth();
+        float screenHeight = mc.getWindow().getScaledHeight();
+        float x = timerX * screenWidth;
+        float y = timerY * screenHeight;
+
+        timerDraggable = DraggableManager.getInstance().create(InterfaceModule.getInstance(), "TimerWidget_" + getName(), x, y);
+        timerDraggable.setWidth(100);
+        timerDraggable.setHeight(40);
+    }
+
+    private void saveTimerPosition() {
+        if (timerDraggable != null && mc.getWindow() != null) {
+            float screenWidth = mc.getWindow().getScaledWidth();
+            float screenHeight = mc.getWindow().getScaledHeight();
+            timerX = timerDraggable.getX() / screenWidth;
+            timerY = timerDraggable.getY() / screenHeight;
+
+            WidgetConfigManager configManager = WidgetConfigManager.getInstance();
+            configManager.setValue("Notification", "timerX", timerX);
+            configManager.setValue("Notification", "timerY", timerY);
+            configManager.save();
+        }
+    }
+
+    private void loadTimerPosition() {
+        WidgetConfigManager configManager = WidgetConfigManager.getInstance();
+        timerX = configManager.getFloat("Notification", "timerX", 0.5f);
+        timerY = configManager.getFloat("Notification", "timerY", 0.15f);
     }
 
 
@@ -96,6 +135,7 @@ public class NotificationWidget extends Widget {
         moduleState = configManager.getBoolean("Notification", "moduleState", false);
         lowDurability = configManager.getBoolean("Notification", "lowDurability", false);
         showCheckTimer = configManager.getBoolean("Notification", "showCheckTimer", true);
+        loadTimerPosition();
     }
 
     private void saveConfig() {
@@ -107,6 +147,7 @@ public class NotificationWidget extends Widget {
         configManager.setValue("Notification", "showCheckTimer", showCheckTimer);
 
         configManager.save();
+        saveTimerPosition();
     }
 
     @Override
@@ -137,6 +178,7 @@ public class NotificationWidget extends Widget {
                         timerAnimation.reset();
                         timerAnimation.setValue(0.0);
                         timerAnimation.run(1.0, 400, Easing.BACK_OUT);
+                        createTimerDraggable();
                     }
                 } else if (parts.length >= 3 && parts[2].equalsIgnoreCase("start")) {
                     if (!checkService.isBeingChecked(playerName)) {
@@ -146,6 +188,7 @@ public class NotificationWidget extends Widget {
                         timerAnimation.reset();
                         timerAnimation.setValue(0.0);
                         timerAnimation.run(1.0, 400, Easing.BACK_OUT);
+                        createTimerDraggable();
                     }
                 } else if (parts.length >= 3 && parts[2].equalsIgnoreCase("stop")) {
                     if (checkService.isBeingChecked(playerName)) {
@@ -234,15 +277,6 @@ public class NotificationWidget extends Widget {
         return null;
     }
 
-    public void stopCheck(String playerName) {
-        if (checkService.isBeingChecked(playerName)) {
-            checkService.stopCheck(playerName);
-            addNotif("Проверка игрока " + playerName + " завершена");
-            lastCheckedPlayer = null;
-            timerAnimation.reset();
-            timerAnimation.run(0.0, 300, Easing.BACK_IN);
-        }
-    }
 
     public void forceStopCheck(String playerName) {
         if (checkService.isBeingChecked(playerName)) {
@@ -252,6 +286,7 @@ public class NotificationWidget extends Widget {
             timerAnimation.reset();
             timerAnimation.setValue(0.0);
             timerAnimation.run(0.0, 300, Easing.BACK_IN);
+            saveTimerPosition();
         }
     }
 
@@ -275,6 +310,7 @@ public class NotificationWidget extends Widget {
                     timerAnimation.reset();
                     timerAnimation.setValue(0.0);
                     timerAnimation.run(1.0, 400, Easing.BACK_OUT);
+                    createTimerDraggable();
                     break;
                 }
             }
@@ -296,6 +332,13 @@ public class NotificationWidget extends Widget {
                 }
             } else {
                 timerPulse = 0;
+            }
+        }
+
+        if (timerDraggable != null) {
+            timerDraggable.onDraw();
+            if (timerDraggable.isDragging()) {
+                saveTimerPosition();
             }
         }
     }
@@ -480,6 +523,14 @@ public class NotificationWidget extends Widget {
 
         if (!isExpired && !hasPlayerLeft && timerAnimValue <= 0.01f) return;
 
+        if (timerDraggable == null || mc.getWindow() == null) return;
+
+        float screenWidth = mc.getWindow().getScaledWidth();
+        float screenHeight = mc.getWindow().getScaledHeight();
+
+        float x = timerDraggable.getX();
+        float y = timerDraggable.getY();
+
         float font = scaled(7);
         float pad = scaled(6);
         float icon = scaled(10);
@@ -489,33 +540,31 @@ public class NotificationWidget extends Widget {
         String playerText = "Проверка: " + activeCheck.getPlayerName();
         String timeText;
         String statusText = null;
-        Color statusColor;
 
         if (isExpired) {
             timeText = "Время истекло!";
-            statusColor = new Color(255, 100, 100, 255);
         } else if (hasPlayerLeft) {
             timeText = "Игрок покинул сервер!";
-            statusColor = new Color(255, 100, 100, 255);
         } else {
             timeText = "Осталось времени: " + activeCheck.getFormattedTime();
-            statusColor = new Color(255, 255, 255, 255);
         }
 
         float timeW = getMediumFont().getWidth(timeText, font);
         float playerW = getMediumFont().getWidth(playerText, font);
         float maxW = Math.max(timeW, playerW);
 
-        if (statusText != null) {
-            float statusW = getMediumFont().getWidth(statusText, font);
-            maxW = Math.max(maxW, statusW);
-        }
-
         float w = pad + icon + gap + maxW + pad;
         float h = icon + pad * 2;
 
-        float x = fixedX - w / 2;
-        float y = fixedY - scaled(50);
+        if (x + w > screenWidth) x = screenWidth - w - 5;
+        if (x < 0) x = 5;
+        if (y + h > screenHeight) y = screenHeight - h - 5;
+        if (y < 0) y = 5;
+
+        timerDraggable.setX(x);
+        timerDraggable.setY(y);
+        timerDraggable.setWidth(w);
+        timerDraggable.setHeight(h);
 
         ms.push();
         float centerX = x + w / 2;
@@ -560,6 +609,10 @@ public class NotificationWidget extends Widget {
         getMediumFont().drawText(ms, timeText, ix + icon + gap, y + h / 2 + gap / 2, font, timeColor);
 
         ms.pop();
+
+        if (timerDraggable.isDragging()) {
+            saveTimerPosition();
+        }
     }
 
     private void renderSettings(MatrixStack ms, double mx, double my) {

@@ -16,10 +16,6 @@ import java.util.stream.Collectors;
 public class FileUtil implements QuickImports {
     private final Gson GSON = new Gson();
 
-    public InputStream getFromAssets(String input) {
-        return FileUtil.class.getResourceAsStream("/assets/" + ClientInfo.NAME.toLowerCase() + "/" + input);
-    }
-
     public Identifier getImage(String path) {
         return Identifier.of(ClientInfo.NAME.toLowerCase(), "images/" + path + ".png");
     }
@@ -40,6 +36,14 @@ public class FileUtil implements QuickImports {
         try(InputStream inputStream = mc.getResourceManager().open(identifier);
             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
             return reader.lines().collect(Collectors.joining(delimiter));
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+    public static String onString(Identifier identifier) {
+        try(InputStream inputStream = mc.getResourceManager().open(identifier);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+            return reader.lines().collect(Collectors.joining("\n"));
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }

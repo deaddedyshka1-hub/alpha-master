@@ -14,6 +14,8 @@ import system.alpha.api.utils.render.fonts.Fonts;
 import system.alpha.api.utils.rotation.manager.RotationManager;
 import system.alpha.client.services.HeartbeatService;
 import system.alpha.client.services.RenderService;
+import system.alpha.client.services.ShaderService;
+import system.alpha.client.services.UpdateService;
 import system.alpha.client.ui.theme.ThemeEditor;
 import system.alpha.client.ui.widget.Widget;
 import system.alpha.client.ui.widget.WidgetManager;
@@ -24,30 +26,33 @@ public class AlphaLoader implements ClientModInitializer {
 	@Getter private static AlphaLoader instance = new AlphaLoader();
 
     @Override
-	public void onInitializeClient() {
+    public void onInitializeClient() {
         instance = this;
 
         SoundUtil.load();
-
         loadManagers();
         loadServices();
         loadFiles();
+
     }
 
     public void postLoad() {
+        Fonts.PS_BOLD.getWidth("test", 10);
+        Fonts.PS_MEDIUM.getWidth("test", 10);
+
+        KawaseBlurProgram.load();
+
         ModuleManager.getInstance().getModules().sort((a, b) -> Float.compare(
                 Fonts.PS_MEDIUM.getWidth(b.getName(), 7f),
                 Fonts.PS_MEDIUM.getWidth(a.getName(), 7f)
         ));
 
-        KawaseBlurProgram.load();
-
         loadWidgetsConfiguration();
 
+        UpdateService.getInstance().checkForUpdates();
     }
 
     private void loadWidgetsConfiguration() {
-        // Получите экземпляр WidgetManager и загрузите конфигурацию для каждого виджета
         WidgetManager widgetManager = WidgetManager.getInstance();
 
         for (Widget widget : widgetManager.getWidgets()) {
@@ -70,10 +75,8 @@ public class AlphaLoader implements ClientModInitializer {
     private void loadManagers() {
         WidgetManager.getInstance().load();
         RotationManager.getInstance().load();
-
         ModuleManager.getInstance().load();
         CommandManager.getInstance().load();
-
         ThemeEditor.getInstance().load();
     }
 
@@ -81,9 +84,10 @@ public class AlphaLoader implements ClientModInitializer {
         HeartbeatService.getInstance().load();
         RenderService.getInstance().load();
         ConfigSkin.getInstance().load();
-
+        ShaderService.getInstance().load();
         DiscordHook.startRPC();
     }
+
 
     public void onClose() {
         ConfigManager.getInstance().save("autoConfig");

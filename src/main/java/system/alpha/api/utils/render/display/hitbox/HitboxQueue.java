@@ -12,7 +12,9 @@ import system.alpha.api.system.interfaces.QuickImports;
 
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class HitboxQueue implements QuickImports {
 
@@ -22,7 +24,6 @@ public class HitboxQueue implements QuickImports {
     public static void addHitbox(Box box, Color fillColor, Color outlineColor, float lineWidth) {
         boxTasks.add(new BoxTask(box, fillColor, outlineColor, lineWidth));
     }
-
 
     public static void addHitboxOutline(Box box, Color color, float lineWidth) {
         boxTasks.add(new BoxTask(box, null, color, lineWidth));
@@ -93,38 +94,28 @@ public class HitboxQueue implements QuickImports {
 
         if (!hasOutlines) return;
 
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
-
+        Map<Float, List<BoxTask>> tasksByWidth = new HashMap<>();
         for (BoxTask task : boxTasks) {
             if (task.outlineColor != null && task.outlineColor.getAlpha() > 0) {
-                GL11.glLineWidth(task.lineWidth);
-                GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
-                GL11.glEnable(GL11.GL_LINE_SMOOTH);
-
-                BufferBuilder tempBuffer = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
-                addOutlineVertices(tempBuffer, matrix, camera, task.box, task.outlineColor);
-
-                RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-                BufferRenderer.drawWithGlobalProgram(tempBuffer.end());
+                tasksByWidth.computeIfAbsent(task.lineWidth, k -> new ArrayList<>()).add(task);
             }
         }
 
-        GL11.glDisable(GL11.GL_LINE_SMOOTH);
-    }
+        for (Map.Entry<Float, List<BoxTask>> entry : tasksByWidth.entrySet()) {
+            float lineWidth = entry.getKey();
+            List<BoxTask> tasks = entry.getValue();
 
-    private static void renderAllLines(Matrix4f matrix, Vec3d camera) {
-        if (lineTasks.isEmpty()) return;
-
-        for (LineTask task : lineTasks) {
             Tessellator tessellator = Tessellator.getInstance();
             BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
-            GL11.glLineWidth(task.lineWidth);
+            for (BoxTask task : tasks) {
+                addOutlineVertices(buffer, matrix, camera, task.box, task.outlineColor);
+            }
+
+            GL11.glLineWidth(lineWidth);
+            RenderSystem.lineWidth(lineWidth);
             GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
             GL11.glEnable(GL11.GL_LINE_SMOOTH);
-
-            addLineVertices(buffer, matrix, camera, task.start, task.end, task.color);
 
             RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
             BufferRenderer.drawWithGlobalProgram(buffer.end());
@@ -133,14 +124,35 @@ public class HitboxQueue implements QuickImports {
         GL11.glDisable(GL11.GL_LINE_SMOOTH);
     }
 
-    private static float getMaxLineWidth() {
-        float maxWidth = 1.5f;
+    private static void renderAllLines(Matrix4f matrix, Vec3d camera) {
+        if (lineTasks.isEmpty()) return;
+
+        Map<Float, List<LineTask>> tasksByWidth = new HashMap<>();
         for (LineTask task : lineTasks) {
-            if (task.lineWidth > maxWidth) {
-                maxWidth = task.lineWidth;
-            }
+            tasksByWidth.computeIfAbsent(task.lineWidth, k -> new ArrayList<>()).add(task);
         }
-        return maxWidth;
+
+        for (Map.Entry<Float, List<LineTask>> entry : tasksByWidth.entrySet()) {
+            float lineWidth = entry.getKey();
+            List<LineTask> tasks = entry.getValue();
+
+            Tessellator tessellator = Tessellator.getInstance();
+            BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
+
+            for (LineTask task : tasks) {
+                addLineVertices(buffer, matrix, camera, task.start, task.end, task.color);
+            }
+
+            GL11.glLineWidth(lineWidth);
+            RenderSystem.lineWidth(lineWidth);
+            GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
+            GL11.glEnable(GL11.GL_LINE_SMOOTH);
+
+            RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+            BufferRenderer.drawWithGlobalProgram(buffer.end());
+        }
+
+        GL11.glDisable(GL11.GL_LINE_SMOOTH);
     }
 
     private static void addFillVertices(BufferBuilder buffer, Matrix4f matrix, Vec3d camera, Box box, Color color) {

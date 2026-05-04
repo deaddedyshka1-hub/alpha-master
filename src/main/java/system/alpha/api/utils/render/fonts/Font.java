@@ -172,6 +172,14 @@ public final class Font {
         drawCenteredGradientText(matrixStack, text, x, y, size, color, colorSecond, offset, 0f);
     }
 
+    public void drawCenteredText(MatrixStack matrixStack, String text, float x, float y, float size, int color) {
+        drawCenteredText(matrixStack, text, x, y, size, color, 0f);
+    }
+
+    public void drawCenteredText(MatrixStack matrixStack, String text, float x, float y, float size, int color, float thickness) {
+        drawCenteredText(matrixStack, text, x, y, size, new Color(color, true), thickness);
+    }
+
     public void drawWrap(MatrixStack matrixStack, String text, float x, float y, float width, float size, Color color, float offset, Duration cycleDuration, Duration pauseDuration) {
         if (color.getAlpha() <= 0) return;
 
@@ -307,5 +315,9 @@ public final class Font {
 
     public static FontBuilder builder() {
         return new FontBuilder();
+    }
+
+    public AbstractTexture getTexture() {
+        return texture;
     }
 }
